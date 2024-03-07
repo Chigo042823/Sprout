@@ -17,9 +17,13 @@ impl Activation {
     pub fn function(&self, x: f64) -> f64 {
         match self.function {
             ActivationFunction::Sigmoid => 
-                1.0 / (1.0 + (-x.exp())),
+                1.0 / (1.0 + ((-x).exp())),
             ActivationFunction::ReLU => 
-                if x < 0.0 {0.0} else {x},
+                if x < 0.0 {
+                    0.0
+                } else {
+                    x
+                },
             ActivationFunction::SoftMax => todo!(),
         }
     }
@@ -29,7 +33,11 @@ impl Activation {
             ActivationFunction::Sigmoid => 
                 x * (1.0 - x),
             ActivationFunction::ReLU => 
-                if x < 0.0 {0.0} else {1.0},
+                if x < 0.0 {
+                    0.0
+                } else {
+                    1.0
+                },
             ActivationFunction::SoftMax => todo!(),
         }
     }

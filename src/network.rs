@@ -1,3 +1,5 @@
+use std::time;
+
 use crate::layer::Layer;
 
 
@@ -22,35 +24,42 @@ impl Network {
         current
     }
 
-    pub fn backward(&mut self, inputs: Vec<f64>, outputs: Vec<f64>, targets: Vec<f64>) {
+    pub fn backward(&mut self, outputs: Vec<f64>, targets: Vec<f64>) {
         if outputs.len() != targets.len() {
             println!("Ouputs: {} and targets: {} are not compatible", outputs.len(), targets.len());
             panic!();
         }
-        let mut loss_gradient = Vec::with_capacity(outputs.len());
+
+        let mut delta_output = Vec::with_capacity(outputs.len());
         for i in 0..outputs.len() {
-            loss_gradient.push(2.0 * (outputs[i] - targets[i]));
+            delta_output.push(2.0 * (outputs[i] - targets[i]));
         }
-        // let sum: f64 = loss_gradient.iter().sum();
-        // println!("Loss: {}", sum);
 
-        let mut next_loss_gradient = loss_gradient.clone();
-
-        for i in (1..self.layers.len()).rev() {
-            let input = self.layers[i-1].get_outputs();
+        for i in (0..self.layers.len()).rev() {
             let layer = self.layers[i].as_mut();
-            next_loss_gradient = layer.backward(input, next_loss_gradient, self.learning_rate);
+            delta_output = layer.backward(delta_output.clone(), self.learning_rate);
         }
     }
 
     pub fn train(&mut self, inputs: Vec<Vec<f64>>, targets: Vec<Vec<f64>>, epochs: usize) {
         for i in 0..epochs {
-            // println!("Epoch: {}", i + 1);
             for j in 0..inputs.len() {
+                let ftime = time::Instant::now();
                 let outputs = self.forward(inputs[j].clone());
-                self.backward(inputs[j].clone(), outputs, targets[j].clone());
+                println!("Epoch: {} / {epochs} || Cost: {}", i + 1, self.get_cost(&targets[j], &outputs));
+                let btime = time::Instant::now();
+                self.backward(outputs, targets[j].clone());
+                println!("Forward: {:?} Backward: {:?}", ftime.elapsed(), btime.elapsed());
             }
         }
+    }
+
+    pub fn get_cost(&self, targets: &Vec<f64>, outputs: &Vec<f64>) -> f64 {
+        let mut cost = 0.0;
+        for i in 0..targets.len() {
+            cost += (outputs[i] -  targets[i]).powf(2.0);
+        }
+        cost / targets.len() as f64
     }
 
     pub fn print_weights(&self) {
