@@ -1,5 +1,4 @@
 use std::vec;
-use rayon::prelude::*;
 
 use rand::{thread_rng, Rng};
 
@@ -51,28 +50,24 @@ impl Layer for DenseLayer {
     fn forward(&mut self, inputs: Vec<f64>) -> Vec<f64> {
         self.inputs = inputs.clone();
         let mut weighted_inputs = self.biases.clone();
-
-        weighted_inputs.par_iter_mut().enumerate().for_each(|(i, w)| {
+        for i in 0..self.nodes_out {
             for j in 0..self.nodes_in {
-                *w += inputs[j] * self.weights[j][i];
+                weighted_inputs[i] += inputs[j] * self.weights[j][i];
             }
-        });
+        }
 
         let mut activation = vec![0.0; self.nodes_out];
-        
-        activation.par_iter_mut().enumerate().for_each(|(i, a)| {
-            *a = self.activation.function(weighted_inputs[i]);
-        });
-
+        for i in 0..self.nodes_out {
+            activation[i] = self.activation.function(weighted_inputs[i]);
+        }
         self.outputs = activation.clone();
         activation
     }
 
     fn backward(&mut self, errors: Vec<f64>, learning_rate: f64) -> Vec<f64> {
-
-        let mut delta_output = errors;
+        let mut delta_output = errors.clone();
         for i in 0..delta_output.len() {
-            delta_output[i] *= self.activation.derivative(self.outputs[i]);
+            delta_output[i] *= self.activation.derivative(self.outputs[i].clone());
         }
 
         for i in 0..self.weights.len() {

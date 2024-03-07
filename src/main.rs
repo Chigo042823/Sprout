@@ -5,20 +5,33 @@ use ml_library::{activation::ActivationFunction::*, layer::{DenseLayer, Layer}, 
 
 fn main() {
     let layers: Vec<Box<dyn Layer>> = vec![
-        Box::new(DenseLayer::new(2, 3, Sigmoid)),
-        Box::new(DenseLayer::new(3, 1, Sigmoid)),
+        Box::new(DenseLayer::new(2, 7, Sigmoid)),
+        Box::new(DenseLayer::new(7, 7, Sigmoid)),
+        Box::new(DenseLayer::new(7, 1, Sigmoid)),
     ];
-    let mut nn = Network::new(layers, 1.0);
-    let time = time::Instant::now();
+    let mut nn = Network::new(layers, 0.8, 1);
+    
+    // let inputs: Vec<Vec<f64>> = vec![
+    //     vec![1.0, 0.0],
+    //     vec![0.0, 0.0],
+    //     vec![1.0, 1.0],
+    //     vec![0.0, 1.0],
+    // ]; 
+    // let targets: Vec<Vec<f64>> = vec![
+    //     vec![1.0, 0.0],
+    //     vec![0.0, 1.0],
+    //     vec![0.0, 1.0],
+    //     vec![1.0, 0.0],
+    // ]; 
 
     // for i in 0..targets.len() {
     //     println!("Input: {:?} // Output: {:?} // Target: {:?}",inputs[i].clone(), nn.forward(inputs[i].clone()), targets[i].clone());
     // }
 
+    let mut inputs = vec![];
+    let mut targets = vec![];
+
     let img = image::open("mnist_8.png").unwrap();
-    
-    let mut inputs: Vec<Vec<f64>> = vec![]; 
-    let mut targets: Vec<Vec<f64>> = vec![]; 
 
     for y in 0..img.dimensions().1 {
         for x in 0..img.dimensions().0 {
@@ -30,7 +43,11 @@ fn main() {
         }
     }
 
-    nn.train(inputs.clone(), targets.clone(), 1);
+    let time = time::Instant::now();
+
+    nn.train(inputs.clone(), targets.clone(), 600_000);
+
+    let delta = time.elapsed();
 
     for y in 0..img.dimensions().1 as usize {
         for x in 0..img.dimensions().0 as usize {
@@ -64,6 +81,5 @@ fn main() {
 
     let _  = new_image.save("Output.png").unwrap();
 
-    let delta = time.elapsed();
-    println!("Total Time Elapsed: {:?}", delta);
+    println!("Training Time Elapsed: {:?}", delta);
 }

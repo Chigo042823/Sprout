@@ -5,14 +5,16 @@ use crate::layer::Layer;
 
 pub struct Network {
     pub layers: Vec<Box<dyn Layer>>,
-    pub learning_rate: f64
+    pub learning_rate: f64,
+    pub batch_size: usize,
 }
 
 impl Network {
-    pub fn new(layers: Vec<Box<dyn Layer>>, learning_rate: f64) -> Self {
+    pub fn new(layers: Vec<Box<dyn Layer>>, learning_rate: f64, batch_size: usize) -> Self {
         Network {
             layers,
             learning_rate,
+            batch_size,
         }
     }
 
@@ -24,16 +26,8 @@ impl Network {
         current
     }
 
-    pub fn backward(&mut self, outputs: Vec<f64>, targets: Vec<f64>) {
-        if outputs.len() != targets.len() {
-            println!("Ouputs: {} and targets: {} are not compatible", outputs.len(), targets.len());
-            panic!();
-        }
-
-        let mut delta_output = Vec::with_capacity(outputs.len());
-        for i in 0..outputs.len() {
-            delta_output.push(2.0 * (outputs[i] - targets[i]));
-        }
+    pub fn backward(&mut self, loss_gradient: Vec<f64>) {
+        let mut delta_output = loss_gradient.clone();
 
         for i in (0..self.layers.len()).rev() {
             let layer = self.layers[i].as_mut();
@@ -42,14 +36,37 @@ impl Network {
     }
 
     pub fn train(&mut self, inputs: Vec<Vec<f64>>, targets: Vec<Vec<f64>>, epochs: usize) {
-        for i in 0..epochs {
-            for j in 0..inputs.len() {
-                let ftime = time::Instant::now();
-                let outputs = self.forward(inputs[j].clone());
-                println!("Epoch: {} / {epochs} || Cost: {}", i + 1, self.get_cost(&targets[j], &outputs));
-                let btime = time::Instant::now();
-                self.backward(outputs, targets[j].clone());
-                println!("Forward: {:?} Backward: {:?}", ftime.elapsed(), btime.elapsed());
+        if inputs.len() % self.batch_size != 0 {
+            panic!("Inputs: {} not divisible by Batch Size: {}", inputs.len(), self.batch_size);
+        }
+
+        for i in 0..epochs { // Epochs
+            if i % 1000 == 0 {
+                println!("Progress: {}%", 100.0 * (i as f32 / epochs as f32));
+            }
+            for j in (0..inputs.len()).step_by(self.batch_size) { // Batches
+                let batches = inputs.len() as f64 / self.batch_size as f64;
+
+                let batch_inputs: Vec<_> = inputs[j..j+self.batch_size].iter().collect();
+                let batch_targets: Vec<_> = targets[j..j+self.batch_size].iter().collect();
+                let mut batch_outputs = vec![vec![0.0; batch_targets[0].len()]; self.batch_size];
+                
+                for k in 0..batch_outputs.len() {
+                    let outputs: Vec<_> = self.forward(batch_inputs[k].clone());
+                    batch_outputs[k] = outputs;
+                }
+
+                let mut loss_gradient = vec![0.0; batch_targets[0].len()];
+
+                for k in 0..batch_targets.len() {
+                    for l in 0..batch_targets[k].len() {
+                        loss_gradient[l] += (2.0 * (batch_outputs[k][l] - batch_targets[k][l])) / batches;
+                    }
+                }
+                
+                // println!("Epoch: {} / {epochs} || Cost: {}", i + 1, self.get_cost(&targets[j], &outputs));
+
+                self.backward(loss_gradient.clone());
             }
         }
     }
