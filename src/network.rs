@@ -36,36 +36,32 @@ impl Network {
     }
 
     pub fn train(&mut self, inputs: Vec<Vec<f64>>, targets: Vec<Vec<f64>>, epochs: usize) {
-        if inputs.len() % self.batch_size != 0 {
-            panic!("Inputs: {} not divisible by Batch Size: {}", inputs.len(), self.batch_size);
-        }
-
         for i in 0..epochs { // Epochs
             if i % 1000 == 0 {
                 println!("Progress: {}%", 100.0 * (i as f32 / epochs as f32));
             }
-            for j in (0..inputs.len()).step_by(self.batch_size) { // Batches
-                let batches = inputs.len() as f64 / self.batch_size as f64;
+            let samples = inputs.len();
+            let batches = f64::ceil(samples as f64 / self.batch_size as f64);
 
-                let batch_inputs: Vec<_> = inputs[j..j+self.batch_size].iter().collect();
-                let batch_targets: Vec<_> = targets[j..j+self.batch_size].iter().collect();
-                let mut batch_outputs = vec![vec![0.0; batch_targets[0].len()]; self.batch_size];
-                
-                for k in 0..batch_outputs.len() {
-                    let outputs: Vec<_> = self.forward(batch_inputs[k].clone());
-                    batch_outputs[k] = outputs;
+            for j in 0..batches as usize { // Batches
+                let batch_start = j * self.batch_size;
+                let batch_end = (batch_start + self.batch_size).min(samples);
+                let mut batch_targets: Vec<Vec<f64>> = vec![];
+                let mut batch_outputs: Vec<Vec<f64>> = vec![];
+
+                for k in batch_start..batch_end {
+                    batch_outputs.push(self.forward(inputs[k].clone()));
+                    batch_targets.push(targets[k].clone());
                 }
 
-                let mut loss_gradient = vec![0.0; batch_targets[0].len()];
+                let mut loss_gradient: Vec<f64> = vec![0.0; batch_targets[0].len()];
 
-                for k in 0..batch_targets.len() {
-                    for l in 0..batch_targets[k].len() {
-                        loss_gradient[l] += (2.0 * (batch_outputs[k][l] - batch_targets[k][l])) / batches;
+                for k in 0..batch_targets.len() { // Each Sample
+                    for l in 0..batch_targets[k].len() { // Each Output Node
+                        loss_gradient[l] += (2.0 * (batch_outputs[k][l] - batch_targets[k][l])) / self.batch_size as f64;
                     }
                 }
                 
-                // println!("Epoch: {} / {epochs} || Cost: {}", i + 1, self.get_cost(&targets[j], &outputs));
-
                 self.backward(loss_gradient.clone());
             }
         }
