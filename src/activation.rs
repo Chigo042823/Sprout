@@ -1,9 +1,13 @@
+use serde_derive::*;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ActivationFunction {
     Sigmoid,
     ReLU,
     SoftMax
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Activation {
     pub function: ActivationFunction,
 }
