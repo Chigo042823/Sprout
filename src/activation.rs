@@ -4,6 +4,7 @@ use serde_derive::*;
 pub enum ActivationFunction {
     Sigmoid,
     ReLU,
+    TanH,
     SoftMax
 }
 
@@ -24,10 +25,12 @@ impl Activation {
                 1.0 / (1.0 + ((-x).exp())),
             ActivationFunction::ReLU => 
                 if x < 0.0 {
-                    0.0
+                    x * 0.01
                 } else {
                     x
                 },
+            ActivationFunction::TanH =>
+                x.tanh(),
             ActivationFunction::SoftMax => todo!(),
         }
     }
@@ -38,10 +41,12 @@ impl Activation {
                 x * (1.0 - x),
             ActivationFunction::ReLU => 
                 if x < 0.0 {
-                    0.0
+                    0.01
                 } else {
                     1.0
                 },
+            ActivationFunction::TanH => 
+                1.0 - (x*x),
             ActivationFunction::SoftMax => todo!(),
         }
     }

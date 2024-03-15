@@ -1,19 +1,20 @@
 use std::time;
 use image::*;
 
-use ml_library::{activation::ActivationFunction::*, layer::{DenseLayer, Layer}, network::Network};
+use ml_library::{activation::ActivationFunction::*, layer::{Layer, LayerType::Dense}, network::Network};
 
 fn main() {
-    let layers: Vec<Box<dyn Layer>> = vec![
-        Box::new(DenseLayer::new(2, 3, Sigmoid)),
-        Box::new(DenseLayer::new(3, 1, Sigmoid)),
+    let layers: Vec<Layer> = vec![
+        Layer::new(2, 3, Dense, Sigmoid),
+        Layer::new(3, 1, Dense, Sigmoid),
     ];
-    let mut nn = Network::new(layers, 0.7, 1);
+    let mut nn = Network::new(layers, 0.7, 2);
 
     let time = time::Instant::now();
-    xor_mode(&mut nn, 5000);
-    // digit_model(nn, 1);
-    // nn.save_model("test2");
+    xor_mode(&mut nn, 10_000);
+    // digit_model(nn, 1000);
+    // nn.save_model("test1");
+
     let delta = time.elapsed();
 
     println!("Training Time Elapsed: {:?}", delta);
@@ -27,8 +28,8 @@ pub fn xor_mode(nn: &mut Network, epochs: usize) {
         [vec![0.0, 1.0], vec![0.0]],
     ];  
 
-    // nn.train(data.clone(), epochs);
-    nn.load_model("test2");
+    nn.train(data.clone(), epochs);
+    // nn.load_model("test1");
 
     for i in 0..data.len() {
         println!("Input: {:?} // Output: {:?} // Target: {:?}",data[i][0].clone(), nn.forward(data[i][0].clone()), data[i][1].clone());
