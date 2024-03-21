@@ -1,10 +1,10 @@
 use rand::seq::SliceRandom;
 use serde_derive::{Serialize, Deserialize};
 
-use crate::layer::Layer;
-use std::{file, fs::File, io::{Read, Write}};
+use crate::layer::{Layer, LayerType};
+use std::{fs::File, io::{Read, Write}};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Network {
     pub layers: Vec<Layer>,
     pub learning_rate: f64,
@@ -28,36 +28,141 @@ impl Network {
         self.print_progress = value
     }
 
-    pub fn forward(&mut self, inputs: Vec<f64>) -> Vec<f64> {
+    pub fn dense_forward(&mut self, inputs: Vec<f64>) -> Vec<f64> {
         let mut current: Vec<f64> = inputs; 
         for i in 0..self.layers.len() {
-            current = self.layers[i].forward(current);
+            current = self.layers[i].dense_forward(current);
         }
         current
     }
 
-    pub fn backward(&mut self, loss_gradient: Vec<f64>) {
+    pub fn conv_forward(&mut self, inputs: Vec<Vec<f64>>) -> Vec<f64> {
+        let mut conv_current = inputs; 
+        let mut dense_current = vec![]; 
+        for i in 0..self.layers.len() {
+            match self.layers[i].layer_type {
+                crate::layer::LayerType::Dense => 
+                    {
+                        if i != 0 {
+                            if self.layers[i - 1].layer_type == LayerType::Convolutional {
+                                dense_current = Self::flatten(conv_current.clone());
+                            }
+                            dense_current = self.layers[i].dense_forward(dense_current);
+                        } 
+                    },
+                crate::layer::LayerType::Convolutional => 
+                    {
+                        conv_current = self.layers[i].conv_forward(conv_current);
+                    },
+            }
+        }
+        dense_current
+    }
+
+    pub fn flatten(inputs: Vec<Vec<f64>>) -> Vec<f64> {
+        let flat = inputs.iter()
+            .flat_map(|row| row.iter())
+            .cloned() // Cloned to avoid borrowing issues
+            .collect();
+        flat
+    }
+
+    pub fn reshape(input: Vec<f64>, rows: usize, cols: usize) -> Vec<Vec<f64>> {
+        let mut output = vec![vec![0.0; cols]; rows];
+        let mut index = 0;
+    
+        for i in 0..rows {
+            for j in 0..cols {
+                output[i][j] = input[index].clone();
+                index += 1;
+            }
+        }
+    
+        output
+    }
+
+    pub fn conv_backward(&mut self, loss_gradient: Vec<f64>) {
+        let mut delta_output = loss_gradient.clone();
+        let mut conv_delta = vec![];
+
+        for i in (0..self.layers.len()).rev() {
+            match self.layers[i].layer_type {
+                crate::layer::LayerType::Dense => 
+                    {
+                        let layer = &mut self.layers[i];
+                        delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate);  
+                        if i - 1 >= 0 as usize {
+                            if self.layers[i - 1].layer_type == LayerType::Convolutional {
+                                let params = self.layers[i - 1].conv_params.as_ref().unwrap();
+                                conv_delta = Self::reshape(delta_output.clone(), params.outputs.len(), params.outputs[0].len());
+                                // println!("{:#?}", conv_delta);
+                            }
+                        } 
+                    },
+                crate::layer::LayerType::Convolutional => 
+                    {
+                        let layer = &mut self.layers[i];
+                        layer.conv_backward(conv_delta.clone(), self.learning_rate);
+                    },
+            }
+        }
+    }
+
+    pub fn dense_backward(&mut self, loss_gradient: Vec<f64>) {
         let mut delta_output = loss_gradient.clone();
 
         for i in (0..self.layers.len()).rev() {
             let layer = &mut self.layers[i];
-            delta_output = layer.backward(delta_output.clone(), self.learning_rate);
+            delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate);
         }
     }
 
-    pub fn train(&mut self, mut data: Vec<[Vec<f64>; 2]>, epochs: usize) {
-        Self::shuffle_vector(&mut data);
+    pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<f64>>, Vec<f64>)>, epochs: usize) {
         let samples = data.len() as f64;
     
         for i in 0..epochs {
             if i % 1000 == 0 && self.print_progress {
                 println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
             }
-    
+            
+            Self::shuffle_tensor(&mut data);
             self.cost = 0.0; // Reset cost for each epoch
     
             for sample in &data {
-                let output = self.forward(sample[0].clone());
+                let output = self.conv_forward(sample.0.clone());
+                let target = &sample.1;
+                self.cost += Self::get_cost(target, &output);
+    
+                let mut loss_gradient: Vec<f64> = vec![0.0; target.len()];
+                for l in 0..target.len() {
+                    loss_gradient[l] += 2.0 * (output[l] - target[l]);
+                }
+    
+                self.conv_backward(loss_gradient);
+            }
+    
+            self.cost /= samples; // Compute average cost per sample
+            println!("{}", self.cost);
+        }
+    
+        if self.print_progress {
+            println!("Training Complete");
+        }
+    }
+
+    pub fn dense_train(&mut self, mut data: Vec<[Vec<f64>; 2]>, epochs: usize) {
+        let samples = data.len() as f64;
+    
+        for i in 0..epochs {
+            if i % 1000 == 0 && self.print_progress {
+                println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
+            }
+            
+            Self::shuffle_vector(&mut data);
+            self.cost = 0.0; // Reset cost for each epoch
+    
+            for sample in &data {
+                let output = self.dense_forward(sample[0].clone());
                 let target = &sample[1];
                 self.cost += Self::get_cost(target, &output);
     
@@ -66,7 +171,7 @@ impl Network {
                     loss_gradient[l] += 2.0 * (output[l] - target[l]);
                 }
     
-                self.backward(loss_gradient);
+                self.dense_backward(loss_gradient);
             }
     
             self.cost /= samples; // Compute average cost per sample
@@ -77,42 +182,73 @@ impl Network {
         }
     }
 
+    pub fn normalgd_train(&mut self, mut data: Vec<[Vec<f64>; 2]>, epochs: usize) {
+        // let samples = data.len() as f64;
+    
+        // for i in 0..epochs {
+        //     if i % 1000 == 0 && self.print_progress {
+        //         println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
+        //     }
+    
+        //     self.cost = 0.0; // Reset cost for each epoch
+        //     let mut loss_gradient: Vec<f64> = vec![0.0; data[0][1].len()];
+    
+        //     for sample in &data {
+        //         let output = self.forward(sample[0].clone());
+        //         let target = &sample[1];
+        //         self.cost += Self::get_cost(target, &output);
+    
+        //         for l in 0..target.len() {
+        //             loss_gradient[l] += 2.0 * (output[l] - target[l]);
+        //             loss_gradient[l] /= samples;
+        //         }    
+        //     }
+        //     self.backward(loss_gradient);
+    
+        //     self.cost /= samples; // Compute average cost per sample
+        // }
+    
+        // if self.print_progress {
+        //     println!("Training Complete");
+        // }
+    }
+
     pub fn batch_train(&mut self, mut data: Vec<[Vec<f64>; 2]>, epochs: usize) {
-        for i in 0..epochs { // Epochs
-            Self::shuffle_vector(&mut data);
-            if i % 1000 == 0 && self.print_progress {
-                println!("Progress: {}%", 100.0 * (i as f32 / epochs as f32));
-            }
-            let samples = data.len();
-            let batches = f64::ceil(samples as f64 / self.batch_size as f64);
+        // for i in 0..epochs { // Epochs
+        //     Self::shuffle_vector(&mut data);
+        //     if i % 1000 == 0 && self.print_progress {
+        //         println!("Progress: {}%", 100.0 * (i as f32 / epochs as f32));
+        //     }
+        //     let samples = data.len();
+        //     let batches = f64::ceil(samples as f64 / self.batch_size as f64);
 
-            for j in 0..batches as usize { // Batches
-                let batch_start = j * self.batch_size;
-                let batch_end = (batch_start + self.batch_size).min(samples);
-                let samples_per_batch = batch_end - batch_start;
-                let mut batch_targets: Vec<Vec<f64>> = vec![];
-                let mut batch_outputs: Vec<Vec<f64>> = vec![];
+        //     for j in 0..batches as usize { // Batches
+        //         let batch_start = j * self.batch_size;
+        //         let batch_end = (batch_start + self.batch_size).min(samples);
+        //         let samples_per_batch = batch_end - batch_start;
+        //         let mut batch_targets: Vec<Vec<f64>> = vec![];
+        //         let mut batch_outputs: Vec<Vec<f64>> = vec![];
 
-                for k in batch_start..batch_end {
-                    batch_outputs.push(self.forward(data[k][0].clone()));
-                    batch_targets.push(data[k][1].clone());
-                }
+        //         for k in batch_start..batch_end {
+        //             batch_outputs.push(self.forward(data[k][0].clone()));
+        //             batch_targets.push(data[k][1].clone());
+        //         }
 
-                let mut loss_gradient: Vec<f64> = vec![0.0; batch_targets[0].len()];
+        //         let mut loss_gradient: Vec<f64> = vec![0.0; batch_targets[0].len()];
 
-                for k in 0..batch_targets.len() { // Each Sample
-                    self.cost += Self::get_cost(&batch_targets[k], &batch_outputs[k]);
-                    for l in 0..batch_targets[k].len() { // Each Output Node
-                        loss_gradient[l] += (2.0 * (batch_outputs[k][l] - batch_targets[k][l])) * (1.0 / samples_per_batch as f64);
-                    }
-                }
-                self.backward(loss_gradient);
-            }
-            self.cost /= data.len() as f64;
-        }
-        if self.print_progress {
-            println!("Training Complete");
-        }
+        //         for k in 0..batch_targets.len() { // Each Sample
+        //             self.cost += Self::get_cost(&batch_targets[k], &batch_outputs[k]);
+        //             for l in 0..batch_targets[k].len() { // Each Output Node
+        //                 loss_gradient[l] += (2.0 * (batch_outputs[k][l] - batch_targets[k][l])) * (1.0 / samples_per_batch as f64);
+        //             }
+        //         }
+        //         self.backward(loss_gradient);
+        //     }
+        //     self.cost /= data.len() as f64;
+        // }
+        // if self.print_progress {
+        //     println!("Training Complete");
+        // }
     }
 
     pub fn reset(&mut self) {
@@ -171,8 +307,13 @@ impl Network {
         vec.shuffle(&mut rng);
     }
 
+    pub fn shuffle_tensor(vec: &mut Vec<(Vec<Vec<f64>>, Vec<f64>)>) {
+        let mut rng = rand::thread_rng();
+        vec.shuffle(&mut rng);
+    }
+
     pub fn save_model(&self, name: &str) {
-        let model: Network = self.clone();
+        let model: &Network = self;
         let serialized = serde_json::to_string(&model).unwrap();
         let mut json = File::create(format!("{}.json", name)).unwrap();
         json.write_all(serialized.as_bytes()).expect("Error writing bytes to JSON");

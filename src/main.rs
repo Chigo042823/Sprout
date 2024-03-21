@@ -1,19 +1,32 @@
 use std::time;
 use image::*;
 
-use ml_library::{activation::ActivationFunction::*, layer::{Layer, LayerType::Dense}, network::Network};
+use ml_library::{convolution_params::PaddingType::*, activation::ActivationFunction::*, convolution_params::ConvParams, convolution_params::PaddingType, layer::{Layer, LayerType::*}, network::Network};
 
 fn main() {
     let layers: Vec<Layer> = vec![
-        Layer::new(2, 3, Dense, Sigmoid),
-        Layer::new(3, 1, Dense, Sigmoid),
+        Layer::conv(3, Same, 1, Sigmoid),
+        Layer::conv(3, Valid, 1, Sigmoid),
+        Layer::dense([1, 1], Sigmoid),
     ];
     let mut nn = Network::new(layers, 0.7, 2);
 
     let time = time::Instant::now();
-    xor_mode(&mut nn, 10_000);
+    // xor_mode(&mut nn, 10_000);
     // digit_model(nn, 1000);
     // nn.save_model("test1");
+    let data = vec![(vec![
+        vec![0.0, 0.0, 0.0],
+        vec![0.0, 1.0, 0.0],
+        vec![0.0, 0.0, 0.0],
+    ], vec![1.0])];
+    // nn.layers[0].conv_params.as_ref().unwrap().print_kernels();
+    // nn.conv_train(data, 1);
+    nn.conv_train(data.clone(), 100);
+    println!("Expected: [1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
+    // println!("{:#?}", nn.layers[0].conv_forward(data[0].0.clone()));
+    // nn.layers[0].conv_params.as_mut().unwrap().data = data;
+
 
     let delta = time.elapsed();
 
@@ -28,11 +41,11 @@ pub fn xor_mode(nn: &mut Network, epochs: usize) {
         [vec![0.0, 1.0], vec![0.0]],
     ];  
 
-    nn.train(data.clone(), epochs);
+    nn.dense_train(data.clone(), epochs);
     // nn.load_model("test1");
 
     for i in 0..data.len() {
-        println!("Input: {:?} // Output: {:?} // Target: {:?}",data[i][0].clone(), nn.forward(data[i][0].clone()), data[i][1].clone());
+        println!("Input: {:?} // Output: {:?} // Target: {:?}",data[i][0].clone(), nn.dense_forward(data[i][0].clone()), data[i][1].clone());
     }
 }
 
@@ -50,7 +63,7 @@ pub fn digit_model(mut nn: Network, epochs: usize) {
         }
     }
 
-    nn.train(data.clone(), epochs);
+    nn.dense_train(data.clone(), epochs);
 
     // for y in 0..img.dimensions().1 as usize {
     //     for x in 0..img.dimensions().0 as usize {
@@ -70,7 +83,7 @@ pub fn digit_model(mut nn: Network, epochs: usize) {
 
     for y in 0..img.dimensions().1 as usize {
         for x in 0..img.dimensions().0 as usize {
-            let int = (nn.forward(vec![x as f64, y as f64])[0] * 255.0) as u8;
+            let int = (nn.dense_forward(vec![x as f64, y as f64])[0] * 255.0) as u8;
             let rgb = Rgb([int, int, int]);
             new_image.put_pixel(x as u32, y as u32, rgb);
             // if int > 10 {
