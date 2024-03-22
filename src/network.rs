@@ -4,23 +4,37 @@ use serde_derive::{Serialize, Deserialize};
 use crate::layer::{Layer, LayerType};
 use std::{fs::File, io::{Read, Write}};
 
+#[derive(Serialize, Deserialize, PartialEq)]
+pub enum NetworkType {
+    FCN,
+    CNN
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Network {
     pub layers: Vec<Layer>,
     pub learning_rate: f64,
     pub batch_size: usize,
     pub cost: f64,
-    pub print_progress: bool
+    pub print_progress: bool,
+    pub network_type: NetworkType
 }
 
 impl Network {
     pub fn new(layers: Vec<Layer>, learning_rate: f64, batch_size: usize) -> Self {
+        let mut network_type = NetworkType::FCN;
+        for i in 0..layers.len() {
+            if layers[i].layer_type == LayerType::Convolutional {
+                network_type = NetworkType::CNN;
+            }
+        }
         Network {
             layers,
             learning_rate,
             batch_size,
             cost: 0.0,
-            print_progress: false
+            print_progress: false,
+            network_type
         }
     }
 
@@ -36,7 +50,7 @@ impl Network {
         current
     }
 
-    pub fn conv_forward(&mut self, inputs: Vec<Vec<f64>>) -> Vec<f64> {
+    pub fn conv_forward(&mut self, inputs: Vec<Vec<Vec<f64>>>) -> Vec<f64> {
         let mut conv_current = inputs; 
         let mut dense_current = vec![]; 
         for i in 0..self.layers.len() {
@@ -45,7 +59,7 @@ impl Network {
                     {
                         if i != 0 {
                             if self.layers[i - 1].layer_type == LayerType::Convolutional {
-                                dense_current = Self::flatten(conv_current.clone());
+                                dense_current = Self::flatten(&conv_current);
                             }
                             dense_current = self.layers[i].dense_forward(dense_current);
                         } 
@@ -59,22 +73,25 @@ impl Network {
         dense_current
     }
 
-    pub fn flatten(inputs: Vec<Vec<f64>>) -> Vec<f64> {
+    pub fn flatten(inputs: &Vec<Vec<Vec<f64>>>) -> Vec<f64> {
         let flat = inputs.iter()
             .flat_map(|row| row.iter())
+            .flat_map(|col| col.iter())
             .cloned() // Cloned to avoid borrowing issues
             .collect();
         flat
     }
 
-    pub fn reshape(input: Vec<f64>, rows: usize, cols: usize) -> Vec<Vec<f64>> {
-        let mut output = vec![vec![0.0; cols]; rows];
-        let mut index = 0;
-    
-        for i in 0..rows {
-            for j in 0..cols {
-                output[i][j] = input[index].clone();
-                index += 1;
+    pub fn reshape(input: Vec<f64>, channels: usize, rows: usize, cols: usize) -> Vec<Vec<Vec<f64>>> {
+        let mut output = vec![vec![vec![0.0; cols]; rows]; channels];
+        
+        for i in 0..channels {
+            let mut index = 0;
+            for j in 0..rows {
+                for k in 0..cols {
+                    output[i][j][k] = input[index].clone();
+                    index += 1;
+                }
             }
         }
     
@@ -94,7 +111,11 @@ impl Network {
                         if i - 1 >= 0 as usize {
                             if self.layers[i - 1].layer_type == LayerType::Convolutional {
                                 let params = self.layers[i - 1].conv_params.as_ref().unwrap();
-                                conv_delta = Self::reshape(delta_output.clone(), params.outputs.len(), params.outputs[0].len());
+                                conv_delta = Self::reshape(delta_output.clone(), 
+                                    params.outputs.len(), 
+                                    params.outputs[0].len(), 
+                                    params.outputs[0][0].len()
+                                );
                                 // println!("{:#?}", conv_delta);
                             }
                         } 
@@ -117,7 +138,7 @@ impl Network {
         }
     }
 
-    pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<f64>>, Vec<f64>)>, epochs: usize) {
+    pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<Vec<f64>>>, Vec<f64>)>, epochs: usize) {
         let samples = data.len() as f64;
     
         for i in 0..epochs {
@@ -142,7 +163,6 @@ impl Network {
             }
     
             self.cost /= samples; // Compute average cost per sample
-            println!("{}", self.cost);
         }
     
         if self.print_progress {
@@ -307,7 +327,7 @@ impl Network {
         vec.shuffle(&mut rng);
     }
 
-    pub fn shuffle_tensor(vec: &mut Vec<(Vec<Vec<f64>>, Vec<f64>)>) {
+    pub fn shuffle_tensor(vec: &mut Vec<(Vec<Vec<Vec<f64>>>, Vec<f64>)>) {
         let mut rng = rand::thread_rng();
         vec.shuffle(&mut rng);
     }

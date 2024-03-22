@@ -1,7 +1,7 @@
 use std::time;
 use image::*;
 
-use ml_library::{convolution_params::PaddingType::*, activation::ActivationFunction::*, convolution_params::ConvParams, convolution_params::PaddingType, layer::{Layer, LayerType::*}, network::Network};
+use ml_library::{conv_params::PaddingType::*, activation::ActivationFunction::*, conv_params::ConvParams, conv_params::PaddingType, layer::{Layer, LayerType::*}, network::Network};
 
 fn main() {
     let layers: Vec<Layer> = vec![
@@ -15,22 +15,27 @@ fn main() {
     // xor_mode(&mut nn, 10_000);
     // digit_model(nn, 1000);
     // nn.save_model("test1");
-    let data = vec![(vec![
-        vec![0.0, 0.0, 0.0],
-        vec![0.0, 1.0, 0.0],
-        vec![0.0, 0.0, 0.0],
-    ], vec![1.0])];
-    // nn.layers[0].conv_params.as_ref().unwrap().print_kernels();
-    // nn.conv_train(data, 1);
-    nn.conv_train(data.clone(), 100);
-    println!("Expected: [1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
-    // println!("{:#?}", nn.layers[0].conv_forward(data[0].0.clone()));
-    // nn.layers[0].conv_params.as_mut().unwrap().data = data;
-
+    conv_model(&mut nn);
 
     let delta = time.elapsed();
 
     println!("Training Time Elapsed: {:?}", delta);
+}
+
+pub fn conv_model(nn: &mut Network) {
+    let data = vec![
+        (vec![
+            vec![
+                vec![0.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 0.0],
+            ],
+        ], 
+        vec![1.0]
+        )
+    ];
+    nn.conv_train(data.clone(), 100);
+    println!("Expected: [1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
 }
 
 pub fn xor_mode(nn: &mut Network, epochs: usize) {

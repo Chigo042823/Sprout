@@ -1,4 +1,4 @@
-use crate::{activation::{Activation, ActivationFunction}, convolution_params::PaddingType, layer::Layer};
+use crate::{activation::{Activation, ActivationFunction}, conv_params::PaddingType, layer::Layer};
 
 pub struct LayerBuilder {
     kernels: Vec<usize>,
