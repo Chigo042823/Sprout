@@ -59,11 +59,11 @@ impl Layer {
 
         for i in 0..img.len() { //each channel
             for j in (0..weighted_inputs[i].len()) { //each img row
-                if j + params.kernel > params.data.len() {
+                if j + params.kernel > params.data[i].len() {
                     break;
                 }
                 for k in (0..weighted_inputs[i][j].len()) { //each img column
-                    if k + params.kernel > params.data[0].len() {
+                    if k + params.kernel > params.data[i][0].len() {
                         break;
                     }
                     for kern_row in 0..params.kernel { //Kernel rows
@@ -108,7 +108,7 @@ impl Layer {
         let mut weight_gradients = vec![vec![vec![0.0; params.kernel]; params.kernel]; channels];
         let img = params.data.clone();
         let mut avg_bias_gradient = 0.0;
-        let mut next_delta = vec![vec![vec![0.0; (params.kernel - 1) * 2 + delta_output[0][0].len()]; (params.kernel - 1) * 2 + delta_output[0].len()]; channels]; //3x3
+        let mut next_delta = vec![]; //3x3
         let kernel = params.kernel;
 
         for i in 0..channels { //each channel
@@ -120,11 +120,11 @@ impl Layer {
             }
 
             for j in (0..delta_output[i].len()) { //each img row
-                if j + kernel == delta_output[i].len() {
+                if j + kernel == img[i].len() {
                     break;
                 }
                 for k in (0..delta_output[i][j].len()) { //each img column
-                    if k + kernel == delta_output[i][j].len() {
+                    if k + kernel == img[i][j].len() {
                         break;
                     }
                     for kern_row in 0..kernel { //Kernel rows
@@ -150,23 +150,27 @@ impl Layer {
             let padded_gradients = Self::add_padding_matrix(kernel - 1, &delta_output[i]);
 
             let rotated_kernel = Self::rotate180(&params.weights[i]);
-            for j in (0..padded_gradients.len() - kernel) { //each img row
-                if j + kernel == padded_gradients.len() {
+            let mut gradient_channel = vec![];
+            for j in (0..padded_gradients.len()) { //each img row
+                if j + params.kernel > padded_gradients.len() {
                     break;
                 }
-                for k in (0..padded_gradients[j].len() - kernel) { //each img column
-                    if k + kernel == padded_gradients[j].len() {
+                let mut gradient_row = vec![];
+                for k in (0..padded_gradients[j].len()) { //each img column
+                    if k + params.kernel > padded_gradients[0].len() {
                         break;
                     }
                     let mut sum = 0.0;
-                    for kern_row in 0..kernel { //Kernel rows
-                        for kern_col in 0..kernel { //Kernel Columns
+                    for kern_row in 0..params.kernel { //Kernel rows
+                        for kern_col in 0..params.kernel { //Kernel Columns
                             sum += (rotated_kernel[kern_row][kern_col] * padded_gradients[j * params.stride + kern_row][k * params.stride + kern_col]);
                         }
                     }
-                    next_delta[i][j][k] = sum;
+                    gradient_row.push(sum);
                 }
+                gradient_channel.push(gradient_row);
             }
+            next_delta.push(gradient_channel);
         }
         params.bias -= learning_rate * avg_bias_gradient;
 

@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use serde_derive::{Serialize, Deserialize};
 
-use crate::layer::{Layer, LayerType};
+use crate::{layer::{Layer, LayerType}, loss_function::{LossFunction, LossType}};
 use std::{fs::File, io::{Read, Write}};
 
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -17,11 +17,12 @@ pub struct Network {
     pub batch_size: usize,
     pub cost: f64,
     pub print_progress: bool,
-    pub network_type: NetworkType
+    pub network_type: NetworkType,
+    pub loss_function: LossFunction
 }
 
 impl Network {
-    pub fn new(layers: Vec<Layer>, learning_rate: f64, batch_size: usize) -> Self {
+    pub fn new(layers: Vec<Layer>, learning_rate: f64, batch_size: usize, loss_type: LossType) -> Self {
         let mut network_type = NetworkType::FCN;
         for i in 0..layers.len() {
             if layers[i].layer_type == LayerType::Convolutional {
@@ -34,7 +35,8 @@ impl Network {
             batch_size,
             cost: 0.0,
             print_progress: false,
-            network_type
+            network_type,
+            loss_function: LossFunction::new(loss_type)
         }
     }
 
@@ -140,7 +142,6 @@ impl Network {
 
     pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<Vec<f64>>>, Vec<f64>)>, epochs: usize) {
         let samples = data.len() as f64;
-    
         for i in 0..epochs {
             if i % 1000 == 0 && self.print_progress {
                 println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
@@ -152,12 +153,10 @@ impl Network {
             for sample in &data {
                 let output = self.conv_forward(sample.0.clone());
                 let target = &sample.1;
-                self.cost += Self::get_cost(target, &output);
+                self.cost += self.loss_function.function(&output, &target);
     
-                let mut loss_gradient: Vec<f64> = vec![0.0; target.len()];
-                for l in 0..target.len() {
-                    loss_gradient[l] += 2.0 * (output[l] - target[l]);
-                }
+                let mut loss_gradient: Vec<f64> = self.loss_function.derivative(&output, target);
+                
     
                 self.conv_backward(loss_gradient);
             }
@@ -184,7 +183,7 @@ impl Network {
             for sample in &data {
                 let output = self.dense_forward(sample[0].clone());
                 let target = &sample[1];
-                self.cost += Self::get_cost(target, &output);
+                self.cost += self.loss_function.function(&output, &target);
     
                 let mut loss_gradient: Vec<f64> = vec![0.0; target.len()];
                 for l in 0..target.len() {
@@ -275,14 +274,6 @@ impl Network {
         for i in 0..self.layers.len() {
             self.layers[i].reset();
         }
-    }
-
-    pub fn get_cost(targets: &Vec<f64>, outputs: &Vec<f64>) -> f64 {
-        let mut cost = 0.0;
-        for i in 0..targets.len() {
-            cost += (outputs[i] -  targets[i]).powf(2.0);
-        }
-        cost
     }
 
     pub fn print_weights(&self) {

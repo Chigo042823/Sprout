@@ -4,3 +4,4 @@ pub mod activation;
 pub mod conv_params;
 pub mod dense_params;
 pub mod layer_builder;
+pub mod loss_function;

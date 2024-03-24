@@ -1,15 +1,15 @@
 use std::time;
 use image::*;
 
-use ml_library::{conv_params::PaddingType::*, activation::ActivationFunction::*, conv_params::ConvParams, conv_params::PaddingType, layer::{Layer, LayerType::*}, network::Network};
+use ml_library::{conv_params::PaddingType::*, activation::ActivationFunction::*, loss_function::LossType::*, conv_params::PaddingType, layer::{Layer, LayerType::*}, network::Network};
 
 fn main() {
     let layers: Vec<Layer> = vec![
         Layer::conv(3, Same, 1, Sigmoid),
-        Layer::conv(3, Valid, 1, Sigmoid),
-        Layer::dense([1, 1], Sigmoid),
+        Layer::conv(3, Same, 1, Sigmoid),
+        Layer::dense([9, 2], Sigmoid),
     ];
-    let mut nn = Network::new(layers, 0.7, 2);
+    let mut nn = Network::new(layers, 0.5, 2, CEL);
 
     let time = time::Instant::now();
     // xor_mode(&mut nn, 10_000);
@@ -31,11 +31,22 @@ pub fn conv_model(nn: &mut Network) {
                 vec![0.0, 0.0, 0.0],
             ],
         ], 
-        vec![1.0]
+        vec![0.0, 1.0]
+        ),
+        (vec![
+            vec![
+                vec![1.0, 1.0, 1.0],
+                vec![1.0, 0.0, 1.0],
+                vec![1.0, 1.0, 1.0],
+            ],
+        ], 
+        vec![1.0, 0.0]
         )
     ];
-    nn.conv_train(data.clone(), 100);
-    println!("Expected: [1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
+    nn.conv_train(data.clone(), 2000);
+    println!("Samples: {} || Channels: {} || Rows: {} || Cols: {}", data.len(), data[0].0.len(), data[0].0[0].len(), data[0].0[0][0].len());
+    println!("Expected: [0.0, 1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
+    println!("Expected: [1.0, 0.0] || Output: {:?}", nn.conv_forward(data[1].0.clone()));
 }
 
 pub fn xor_mode(nn: &mut Network, epochs: usize) {

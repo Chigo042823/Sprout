@@ -40,6 +40,9 @@ impl ConvParams {
     }
 
     pub fn init(&mut self) {
+        if self.weights.len() != 0 as usize {
+            return;
+        }
         for i in 0..self.data.len() {
             self.weights.push(vec![vec![0.0; self.kernel]; self.kernel]);
         }
