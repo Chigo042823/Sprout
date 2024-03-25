@@ -100,7 +100,7 @@ impl Network {
         output
     }
 
-    pub fn conv_backward(&mut self, loss_gradient: Vec<f64>) {
+    pub fn conv_backward(&mut self, loss_gradient: Vec<f64>, true_index: usize) {
         let mut delta_output = loss_gradient.clone();
         let mut conv_delta = vec![];
 
@@ -109,7 +109,7 @@ impl Network {
                 crate::layer::LayerType::Dense => 
                     {
                         let layer = &mut self.layers[i];
-                        delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate);  
+                        delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate, true_index);  
                         if i - 1 >= 0 as usize {
                             if self.layers[i - 1].layer_type == LayerType::Convolutional {
                                 let params = self.layers[i - 1].conv_params.as_ref().unwrap();
@@ -118,47 +118,52 @@ impl Network {
                                     params.outputs[0].len(), 
                                     params.outputs[0][0].len()
                                 );
-                                // println!("{:#?}", conv_delta);
                             }
                         } 
                     },
                 crate::layer::LayerType::Convolutional => 
                     {
                         let layer = &mut self.layers[i];
-                        layer.conv_backward(conv_delta.clone(), self.learning_rate);
+                        layer.conv_backward(conv_delta.clone(), self.learning_rate, true_index);
                     },
             }
         }
     }
 
-    pub fn dense_backward(&mut self, loss_gradient: Vec<f64>) {
+    pub fn dense_backward(&mut self, loss_gradient: Vec<f64>, true_index: usize) {
         let mut delta_output = loss_gradient.clone();
 
         for i in (0..self.layers.len()).rev() {
             let layer = &mut self.layers[i];
-            delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate);
+            delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate, true_index);
         }
     }
 
     pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<Vec<f64>>>, Vec<f64>)>, epochs: usize) {
         let samples = data.len() as f64;
+        self.cost = 0.0; // Reset cost for each epoch
         for i in 0..epochs {
             if i % 1000 == 0 && self.print_progress {
                 println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
             }
             
             Self::shuffle_tensor(&mut data);
-            self.cost = 0.0; // Reset cost for each epoch
     
             for sample in &data {
                 let output = self.conv_forward(sample.0.clone());
                 let target = &sample.1;
-                self.cost += self.loss_function.function(&output, &target);
+                let mut true_index = 0;
+                for i in 0..target.len() {
+                    if target[i] == 1.0 {
+                        true_index = i;
+                        break;
+                    }
+                }
+                self.cost += self.loss_function.function(&output, &target, true_index);
     
-                let mut loss_gradient: Vec<f64> = self.loss_function.derivative(&output, target);
+                let loss_gradient: Vec<f64> = self.loss_function.derivative(&output, target, true_index);
                 
-    
-                self.conv_backward(loss_gradient);
+                self.conv_backward(loss_gradient.clone(), true_index);
             }
     
             self.cost /= samples; // Compute average cost per sample
@@ -183,14 +188,18 @@ impl Network {
             for sample in &data {
                 let output = self.dense_forward(sample[0].clone());
                 let target = &sample[1];
-                self.cost += self.loss_function.function(&output, &target);
-    
-                let mut loss_gradient: Vec<f64> = vec![0.0; target.len()];
-                for l in 0..target.len() {
-                    loss_gradient[l] += 2.0 * (output[l] - target[l]);
+                let mut true_index = 0;
+                for i in 0..target.len() {
+                    if target[i] == 1.0 {
+                        true_index = i;
+                        break;
+                    }
                 }
+                self.cost += self.loss_function.function(&output, &target, true_index);
     
-                self.dense_backward(loss_gradient);
+                let loss_gradient = self.loss_function.derivative(&output, &target, true_index);
+    
+                self.dense_backward(loss_gradient, true_index);
             }
     
             self.cost /= samples; // Compute average cost per sample
@@ -335,5 +344,12 @@ impl Network {
         let _ = File::open(format!("{}.json", name)).expect("Error opening file").read_to_string(&mut str);
         let mut model: Network = serde_json::from_str(&str).unwrap();
         std::mem::swap(self, &mut model);
+    }
+
+    pub fn from_load(name: &str) -> Self {
+        let mut str = String::new();
+        let _ = File::open(format!("{}.json", name)).expect("Error opening file").read_to_string(&mut str);
+        let model: Network = serde_json::from_str(&str).unwrap();
+        model
     }
 }

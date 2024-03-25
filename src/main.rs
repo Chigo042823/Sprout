@@ -5,11 +5,11 @@ use ml_library::{conv_params::PaddingType::*, activation::ActivationFunction::*,
 
 fn main() {
     let layers: Vec<Layer> = vec![
-        Layer::conv(3, Same, 1, Sigmoid),
-        Layer::conv(3, Same, 1, Sigmoid),
-        Layer::dense([9, 2], Sigmoid),
+        Layer::conv(3, Same, 1, ReLU),
+        Layer::dense([36, 7], TanH),
+        Layer::dense([7, 3], SoftMax),
     ];
-    let mut nn = Network::new(layers, 0.5, 2, CEL);
+    let mut nn = Network::new(layers, 0.2, 2, CEL);
 
     let time = time::Instant::now();
     // xor_mode(&mut nn, 10_000);
@@ -26,24 +26,30 @@ pub fn conv_model(nn: &mut Network) {
     let data = vec![
         (vec![
             vec![
-                vec![0.0, 0.0, 0.0],
-                vec![0.0, 1.0, 0.0],
-                vec![0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
             ],
         ], 
-        vec![0.0, 1.0]
+        vec![0.0, 1.0, 0.0]
         ),
         (vec![
             vec![
-                vec![1.0, 1.0, 1.0],
-                vec![1.0, 0.0, 1.0],
-                vec![1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
             ],
         ], 
-        vec![1.0, 0.0]
-        )
+        vec![1.0, 0.0, 0.0,]
+        ),
     ];
-    nn.conv_train(data.clone(), 2000);
+    nn.conv_train(data.clone(), 5000);
     println!("Samples: {} || Channels: {} || Rows: {} || Cols: {}", data.len(), data[0].0.len(), data[0].0[0].len(), data[0].0[0][0].len());
     println!("Expected: [0.0, 1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
     println!("Expected: [1.0, 0.0] || Output: {:?}", nn.conv_forward(data[1].0.clone()));

@@ -75,9 +75,7 @@ impl Layer {
                 }
             }
             for j in 0..weighted_inputs[i].len() { 
-                for k in 0..weighted_inputs[i][j].len() { 
-                    activation[i][j][k] = self.activation.function(weighted_inputs[i][j][k]);
-                }
+                activation[i][j] = self.activation.function(weighted_inputs[i][j].clone());
             }
         }
         params.outputs = activation.clone();
@@ -93,15 +91,12 @@ impl Layer {
             }
         }
 
-        let mut activation = vec![0.0; self.dense_params.as_mut().unwrap().nodes_out];
-        for i in 0..self.dense_params.as_mut().unwrap().nodes_out {
-            activation[i] = self.activation.function(weighted_inputs[i]);
-        }
+        let activation = self.activation.function(weighted_inputs);
         self.dense_params.as_mut().unwrap().outputs = activation.clone();
         activation
     }
 
-    pub fn conv_backward(&mut self, errors: Vec<Vec<Vec<f64>>>, learning_rate: f64) -> Vec<Vec<Vec<f64>>> {
+    pub fn conv_backward(&mut self, errors: Vec<Vec<Vec<f64>>>, learning_rate: f64, true_index: usize) -> Vec<Vec<Vec<f64>>> {
         let params = self.conv_params.as_mut().unwrap();
         let channels = params.data.len();
         let mut delta_output = errors;
@@ -112,10 +107,10 @@ impl Layer {
         let kernel = params.kernel;
 
         for i in 0..channels { //each channel
-            
             for j in 0..delta_output[i].len() {
+                let activation_derivatives = self.activation.derivative(params.outputs[i][j].clone(), true_index);
                 for k in 0..delta_output[i][j].len() {
-                    delta_output[i][j][k] *= self.activation.derivative(params.outputs[i][j][k].clone());
+                    delta_output[i][j][k] *= activation_derivatives[k];
                 }
             }
 
@@ -202,11 +197,11 @@ impl Layer {
         padded_image
     }
 
-    pub fn dense_backward(&mut self, errors: Vec<f64>, learning_rate: f64) -> Vec<f64> {
+    pub fn dense_backward(&mut self, errors: Vec<f64>, learning_rate: f64, true_index: usize) -> Vec<f64> {
         let mut delta_output = errors.clone();
+        let activation_gradients = self.activation.derivative(self.dense_params.as_mut().unwrap().outputs.clone(), true_index);
         for i in 0..delta_output.len() {
-            delta_output[i] *= self.activation.derivative(self.dense_params.as_mut().unwrap().outputs[i].clone());
-            // delta_output[i] = delta_output[i].min(5.0);
+            delta_output[i] *= activation_gradients[i];
         }
 
         for i in 0..self.dense_params.as_mut().unwrap().weights.len() {

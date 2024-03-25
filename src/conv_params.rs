@@ -47,12 +47,12 @@ impl ConvParams {
             self.weights.push(vec![vec![0.0; self.kernel]; self.kernel]);
         }
 
-        self.bias = thread_rng().gen_range(-0.2..0.2);
+        self.bias = thread_rng().gen_range(-0.5..0.5);
 
         for i in 0..self.weights.len() {
             for j in 0..self.weights[i].len() {
                 for k in 0..self.weights[i][j].len() {
-                    self.weights[i][j][k] = thread_rng().gen_range(-0.2..0.2);
+                    self.weights[i][j][k] = thread_rng().gen_range(-0.5..0.5);
                 }
             }
         }

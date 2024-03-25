@@ -32,11 +32,11 @@ impl DenseParams {
     pub fn init(&mut self) {
         for i in 0..self.weights.len() {
             for j in 0..self.weights[i].len() {
-                self.weights[i][j] = thread_rng().gen_range(-0.2..0.2); //in (rows) - out (cols)
+                self.weights[i][j] = thread_rng().gen_range(-0.5..0.5); //in (rows) - out (cols)
             }
         }
         for i in 0..self.biases.len() {
-            self.biases[i] = thread_rng().gen_range(-0.2..0.2); //nodes out
+            self.biases[i] = thread_rng().gen_range(-0.5..0.5); //nodes out
         }
     }
 }

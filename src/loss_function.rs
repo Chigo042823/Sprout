@@ -1,4 +1,4 @@
-use serde_derive::{Deserialize, Serialize};
+    use serde_derive::{Deserialize, Serialize};
 
 
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -20,7 +20,7 @@ impl LossFunction {
         }
     }
 
-    pub fn function(&self, outputs: &Vec<f64>, targets: &Vec<f64>) -> f64 {
+    pub fn function(&self, outputs: &Vec<f64>, targets: &Vec<f64>, true_index: usize) -> f64 {
         match self.loss_type {
             LossType::MSE => 
                 {   
@@ -32,18 +32,12 @@ impl LossFunction {
                 },
             LossType::CEL => 
             {
-                let mut true_index = 0;
-                for i in 0..targets.len() {
-                    if targets[i] == 1.0 {
-                        true_index = i;
-                    }
-                }
-                -(outputs[true_index].ln())
+                -outputs[true_index].ln()
             },
         }
     }
 
-    pub fn derivative(&self, outputs: &Vec<f64>, targets: &Vec<f64>) -> Vec<f64> {
+    pub fn derivative(&self, outputs: &Vec<f64>, targets: &Vec<f64>, true_index: usize) -> Vec<f64> {
         match self.loss_type {
             LossType::MSE => 
                 {   
@@ -55,14 +49,8 @@ impl LossFunction {
                 },
             LossType::CEL => 
                 {
-                    let mut true_index = 0;
-                    for i in 0..targets.len() {
-                        if targets[i] == 1.0 {
-                            true_index = i;
-                        }
-                    }
-                    let mut gradients = vec![outputs[true_index]; targets.len()];
-                    gradients[true_index] = outputs[true_index] - 1.0;
+                    let mut gradients = outputs.clone();
+                    gradients[true_index] -= 1.0;
                     gradients
                 },
         }
