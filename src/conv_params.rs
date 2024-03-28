@@ -52,7 +52,7 @@ impl ConvParams {
         for i in 0..self.weights.len() {
             for j in 0..self.weights[i].len() {
                 for k in 0..self.weights[i][j].len() {
-                    self.weights[i][j][k] = thread_rng().gen_range(-0.5..0.5);
+                    self.weights[i][j][k] = thread_rng().gen_range(-1.0..1.0);
                 }
             }
         }

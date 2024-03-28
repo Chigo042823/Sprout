@@ -108,6 +108,9 @@ impl Layer {
 
         for i in 0..channels { //each channel
             for j in 0..delta_output[i].len() {
+                if self.activation.function == ActivationFunction::SoftMax {
+                    break;
+                }
                 let activation_derivatives = self.activation.derivative(params.outputs[i][j].clone(), true_index);
                 for k in 0..delta_output[i][j].len() {
                     delta_output[i][j][k] *= activation_derivatives[k];
@@ -125,6 +128,7 @@ impl Layer {
                     for kern_row in 0..kernel { //Kernel rows
                         for kern_col in 0..kernel { //Kernel Columns
                             weight_gradients[i][kern_row][kern_col] += (img[i][j * params.stride + kern_row][k * params.stride + kern_col] * delta_output[i][j][k]);
+                            let _ = weight_gradients[i][kern_row][kern_col].min(5.0);
                         }
                     }
                 }
@@ -141,6 +145,7 @@ impl Layer {
                 }
             }
             avg_bias_gradient /= (delta_output[i].len() * delta_output[i][0].len()) as f64;
+            let _ = avg_bias_gradient.min(5.0);
 
             let padded_gradients = Self::add_padding_matrix(kernel - 1, &delta_output[i]);
 
@@ -199,8 +204,12 @@ impl Layer {
 
     pub fn dense_backward(&mut self, errors: Vec<f64>, learning_rate: f64, true_index: usize) -> Vec<f64> {
         let mut delta_output = errors.clone();
+
         let activation_gradients = self.activation.derivative(self.dense_params.as_mut().unwrap().outputs.clone(), true_index);
         for i in 0..delta_output.len() {
+            if self.activation.function == ActivationFunction::SoftMax {
+                break;
+            }
             delta_output[i] *= activation_gradients[i];
         }
 

@@ -1,7 +1,7 @@
     use serde_derive::{Deserialize, Serialize};
 
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub enum LossType {
     MSE,
     CEL

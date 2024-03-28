@@ -280,6 +280,7 @@ impl Network {
     }
 
     pub fn reset(&mut self) {
+        self.cost = 0.0;
         for i in 0..self.layers.len() {
             self.layers[i].reset();
         }

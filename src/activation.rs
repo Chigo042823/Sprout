@@ -1,6 +1,6 @@
 use serde_derive::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ActivationFunction {
     Sigmoid,
     ReLU,
@@ -38,7 +38,7 @@ impl Activation {
                         outputs[i] = if x > 0.0 {
                             x
                         } else {
-                            x * 0.01
+                            x * 0.001
                         };
                     }
                     outputs  
@@ -54,12 +54,11 @@ impl Activation {
                 },
             ActivationFunction::SoftMax => 
                 {
-                    let max_input = *inputs.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-                    let sum_exp: f64 = inputs.iter().map(|&x| (x - max_input).exp()).sum();
+                    let sum_exp: f64 = inputs.clone().iter().map(|x| x.exp()).sum();
 
                     let mut outputs = vec![0.0; inputs.len()];
                     for i in 0..outputs.len() {
-                        outputs[i] = ((inputs[i] - max_input).exp()) / sum_exp;
+                        outputs[i] = (inputs[i].exp()) / sum_exp;
                     }
                     outputs 
                 },
@@ -84,7 +83,7 @@ impl Activation {
                     for i in 0..outputs.len() {
                         let x = outputs[i];
                         gradients[i] = if x < 0.0 {
-                            0.01
+                            0.001
                         } else {
                             1.0
                         };
@@ -102,17 +101,7 @@ impl Activation {
             },
             ActivationFunction::SoftMax => 
                 {
-                    let true_val = outputs[true_index];
-                    let mut gradients = vec![0.0; outputs.len()];
-                    for i in 0..outputs.len() {
-                        if i == true_index {
-                            continue;
-                        }
-                        let x = outputs[i];
-                        gradients[i] = -true_val * x;
-                    }
-                    gradients[true_index] = true_val * (1.0 - true_val);
-                    gradients                
+                    vec![]              
                 },
         }
     }
