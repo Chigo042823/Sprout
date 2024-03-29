@@ -128,7 +128,7 @@ impl Layer {
                     for kern_row in 0..kernel { //Kernel rows
                         for kern_col in 0..kernel { //Kernel Columns
                             weight_gradients[i][kern_row][kern_col] += (img[i][j * params.stride + kern_row][k * params.stride + kern_col] * delta_output[i][j][k]);
-                            let _ = weight_gradients[i][kern_row][kern_col].min(5.0);
+                            let _ = weight_gradients[i][kern_row][kern_col];
                         }
                     }
                 }
@@ -145,7 +145,7 @@ impl Layer {
                 }
             }
             avg_bias_gradient /= (delta_output[i].len() * delta_output[i][0].len()) as f64;
-            let _ = avg_bias_gradient.min(5.0);
+            let _ = avg_bias_gradient;
 
             let padded_gradients = Self::add_padding_matrix(kernel - 1, &delta_output[i]);
 

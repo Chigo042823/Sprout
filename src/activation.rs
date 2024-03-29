@@ -38,7 +38,7 @@ impl Activation {
                         outputs[i] = if x > 0.0 {
                             x
                         } else {
-                            x * 0.001
+                            x * 0.01
                         };
                     }
                     outputs  
@@ -54,11 +54,13 @@ impl Activation {
                 },
             ActivationFunction::SoftMax => 
                 {
-                    let sum_exp: f64 = inputs.clone().iter().map(|x| x.exp()).sum();
+                    let mean = inputs.clone().iter().sum::<f64>() / inputs.len() as f64;
+                    // let mean = 0.0;
+                    let sum_exp: f64 = inputs.clone().iter().map(|x| (x - mean).exp()).sum();
 
                     let mut outputs = vec![0.0; inputs.len()];
                     for i in 0..outputs.len() {
-                        outputs[i] = (inputs[i].exp()) / sum_exp;
+                        outputs[i] = ((inputs[i] - mean).exp()) / sum_exp;
                     }
                     outputs 
                 },
@@ -83,7 +85,7 @@ impl Activation {
                     for i in 0..outputs.len() {
                         let x = outputs[i];
                         gradients[i] = if x < 0.0 {
-                            0.001
+                            0.01
                         } else {
                             1.0
                         };

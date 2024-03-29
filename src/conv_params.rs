@@ -47,12 +47,13 @@ impl ConvParams {
             self.weights.push(vec![vec![0.0; self.kernel]; self.kernel]);
         }
 
-        self.bias = thread_rng().gen_range(-0.5..0.5);
+        let std_dev = (2.0 / (self.weights.len() + self.weights[0].len()) as f64).sqrt();
+        self.bias = 0.0;
 
         for i in 0..self.weights.len() {
             for j in 0..self.weights[i].len() {
                 for k in 0..self.weights[i][j].len() {
-                    self.weights[i][j][k] = thread_rng().gen_range(-1.0..1.0);
+                    self.weights[i][j][k] = thread_rng().gen_range(-0.5..0.5) * std_dev;
                 }
             }
         }

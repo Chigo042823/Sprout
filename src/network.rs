@@ -18,7 +18,8 @@ pub struct Network {
     pub cost: f64,
     pub print_progress: bool,
     pub network_type: NetworkType,
-    pub loss_function: LossFunction
+    pub loss_function: LossFunction,
+    pub grad_threshold: f64,
 }
 
 impl Network {
@@ -36,7 +37,8 @@ impl Network {
             cost: 0.0,
             print_progress: false,
             network_type,
-            loss_function: LossFunction::new(loss_type)
+            loss_function: LossFunction::new(loss_type),
+            grad_threshold: 0.8,
         }
     }
 
@@ -159,11 +161,24 @@ impl Network {
                         break;
                     }
                 }
-                self.cost += self.loss_function.function(&output, &target, true_index);
+                let mut cost = self.loss_function.function(&output, &target, true_index);
+                if cost.is_nan() || cost.is_infinite() {
+                    cost = 0.0;
+                }
+                self.cost += cost;
     
-                let loss_gradient: Vec<f64> = self.loss_function.derivative(&output, target, true_index);
+                let mut loss_gradient: Vec<f64> = self.loss_function.derivative(&output, target, true_index);
+
+                let l2_norm = loss_gradient.iter().map(|x| x.powf(2.0)).sum::<f64>().sqrt();
+
+                if l2_norm > self.grad_threshold {
+                    let scale = self.grad_threshold / l2_norm;
+                    for i in 0..loss_gradient.len() {
+                        loss_gradient[i] *= scale;
+                    }
+                }
                 
-                self.conv_backward(loss_gradient.clone(), true_index);
+                self.conv_backward(loss_gradient, true_index);
             }
     
             self.cost /= samples; // Compute average cost per sample
