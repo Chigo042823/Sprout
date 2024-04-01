@@ -38,7 +38,7 @@ impl Network {
             print_progress: false,
             network_type,
             loss_function: LossFunction::new(loss_type),
-            grad_threshold: 0.8,
+            grad_threshold: 1.0,
         }
     }
 
@@ -59,18 +59,22 @@ impl Network {
         let mut dense_current = vec![]; 
         for i in 0..self.layers.len() {
             match self.layers[i].layer_type {
-                crate::layer::LayerType::Dense => 
+                LayerType::Dense => 
                     {
                         if i != 0 {
-                            if self.layers[i - 1].layer_type == LayerType::Convolutional {
+                            if self.layers[i - 1].layer_type != LayerType::Dense {
                                 dense_current = Self::flatten(&conv_current);
                             }
                             dense_current = self.layers[i].dense_forward(dense_current);
                         } 
                     },
-                crate::layer::LayerType::Convolutional => 
+                LayerType::Convolutional => 
                     {
                         conv_current = self.layers[i].conv_forward(conv_current);
+                    },
+                LayerType::Pooling => 
+                    {
+                        conv_current = self.layers[i].pool_forward(conv_current);
                     },
             }
         }
@@ -108,12 +112,12 @@ impl Network {
 
         for i in (0..self.layers.len()).rev() {
             match self.layers[i].layer_type {
-                crate::layer::LayerType::Dense => 
+                LayerType::Dense => 
                     {
                         let layer = &mut self.layers[i];
                         delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate, true_index);  
                         if i - 1 >= 0 as usize {
-                            if self.layers[i - 1].layer_type == LayerType::Convolutional {
+                            if self.layers[i - 1].layer_type != LayerType::Dense {
                                 let params = self.layers[i - 1].conv_params.as_ref().unwrap();
                                 conv_delta = Self::reshape(delta_output.clone(), 
                                     params.outputs.len(), 
@@ -123,10 +127,15 @@ impl Network {
                             }
                         } 
                     },
-                crate::layer::LayerType::Convolutional => 
+                LayerType::Convolutional => 
                     {
                         let layer = &mut self.layers[i];
-                        layer.conv_backward(conv_delta.clone(), self.learning_rate, true_index);
+                        conv_delta = layer.conv_backward(conv_delta.clone(), self.learning_rate, true_index);
+                    },
+                LayerType::Pooling => 
+                    {
+                        let layer = &mut self.layers[i];
+                        conv_delta = layer.pool_backward(conv_delta.clone());
                     },
             }
         }

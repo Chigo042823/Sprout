@@ -6,16 +6,39 @@ use ml_library::{conv_params::PaddingType::*, activation::ActivationFunction::*,
 fn main() {
     let layers: Vec<Layer> = vec![
         Layer::conv(3, Same, 1, ReLU),
-        Layer::dense([36, 7], TanH),
-        Layer::dense([7, 3], SoftMax),
+        Layer::pool(2, 1),
+        Layer::dense([4, 2], Sigmoid),
     ];
     let mut nn = Network::new(layers, 0.2, 2, CEL);
 
+    let data = vec![
+        (
+            vec![
+                vec![
+                vec![0.0, 1.0, 0.0],
+                vec![1.0, 1.0, 1.0],
+                vec![0.0, 1.0, 0.0],
+                ]
+            ],
+            vec![0.0, 1.0]
+        )
+    ];
+
     let time = time::Instant::now();
+
+    // let pool = nn.layers[1].conv_params.as_ref().unwrap().outputs.clone();
+    // let conv = nn.layers[0].conv_params.as_ref().unwrap().outputs.clone();
+    // for row in &conv[0] {
+    //     println!("{:?}", row);
+    // }
+    // println!("---------------");
+    // for row in &pool[0] {
+    //     println!("{:?}", row);
+    // }
     // xor_mode(&mut nn, 10_000);
     // digit_model(nn, 1000);
     // nn.save_model("test1");
-    conv_model(&mut nn);
+    // conv_model(&mut nn);
 
     let delta = time.elapsed();
 

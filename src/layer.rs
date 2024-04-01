@@ -1,14 +1,20 @@
 use std::vec;
-
-use rand::{thread_rng, Rng};
-
-use crate::{activation::{Activation, ActivationFunction}, conv_params::{ConvParams, PaddingType}, dense_params::{self, DenseParams}};
 use serde_derive::*;
+
+use crate::
+    {activation::
+        {Activation, ActivationFunction}, 
+        conv_params::
+            {ConvParams, PaddingType}, 
+        dense_params::
+            DenseParams
+    };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LayerType {
     Dense,
     Convolutional,
+    Pooling
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +44,17 @@ impl Layer {
             dense_params: None,
             activation: Activation::new(activation_fn),
             layer_type: LayerType::Convolutional,
+            conv_params
+        };
+        layer
+    }
+
+    pub fn pool(kernel: usize, stride: usize) -> Self {
+        let conv_params = Some(ConvParams::new(kernel, PaddingType::Valid, stride));
+        let layer = Layer {
+            dense_params: None,
+            activation: Activation::new(ActivationFunction::ReLU),
+            layer_type: LayerType::Pooling,
             conv_params
         };
         layer
@@ -80,6 +97,42 @@ impl Layer {
         }
         params.outputs = activation.clone();
         activation
+    }
+
+    pub fn pool_forward(&mut self, inputs: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
+        let params = self.conv_params.as_mut().unwrap();
+        params.inputs = inputs;
+        params.add_padding();
+
+        let output_dims = params.get_output_dims();
+        let img = params.inputs.clone();
+
+        let mut output = vec![vec![vec![0.0; output_dims[0]]; output_dims[1]]; params.data.len()];
+
+        for i in 0..img.len() { //each channel
+            for j in (0..output[i].len()) { //each output img row
+                if j + params.kernel > params.data[i].len() {
+                    break;
+                }
+                for k in (0..output[i][j].len()) { //each output img column
+                    if k + params.kernel > params.data[i][0].len() {
+                        break;
+                    }
+                    let mut max = img[i][j][k];
+                    for kern_row in 0..params.kernel { //Kernel rows
+                        for kern_col in 0..params.kernel { //Kernel Columns
+                            let val = img[i][j * params.stride + kern_row][k * params.stride + kern_col];
+                            if val > max {
+                                max = val;
+                            }
+                        }
+                    }
+                    output[i][j][k] = max;
+                }
+            }
+        }
+        params.outputs = output.clone();
+        output
     }
 
     pub fn dense_forward(&mut self, inputs: Vec<f64>) -> Vec<f64> {
@@ -173,6 +226,55 @@ impl Layer {
             next_delta.push(gradient_channel);
         }
         params.bias -= learning_rate * avg_bias_gradient;
+
+        next_delta
+    }
+
+    pub fn pool_backward(&mut self, errors: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
+        let params = self.conv_params.as_mut().unwrap();
+        let channels = params.data.len();
+        let delta_output = errors;
+        let img = params.data.clone();
+        let kernel = params.kernel;
+        let inputs = params.inputs.clone();
+        let mut indecies = vec![];
+
+        let mut next_delta = vec![vec![vec![0.0; inputs[0][0].len()]; inputs[0].len()]; inputs.len()]; //3x3
+
+        for i in 0..channels { //each channel
+            let mut img_indecies = vec![];
+            for j in (0..delta_output[i].len()) { //each img row
+                if j + kernel == img[i].len() {
+                    break;
+                }
+                for k in (0..delta_output[i][j].len()) { //each img column
+                    if k + kernel == img[i][j].len() {
+                        break;
+                    }
+                    let mut max = inputs[i][0][0];
+                    let mut max_indx = [0, 0];
+                    for kern_row in 0..kernel { //Kernel rows
+                        for kern_col in 0..kernel { //Kernel Columns
+                            let val = img[i][j * params.stride + kern_row][k * params.stride + kern_col];
+                            if val > max {
+                                max_indx = [j * params.stride + kern_row, k * params.stride + kern_col]; //each kernel
+                                max = val;
+                            }
+                        }
+                    }
+                    img_indecies.push(max_indx); //each img
+                }
+            }
+            indecies.push(img_indecies); //each channel
+        }
+
+        for i in 0..indecies.len() {
+            for j in 0..indecies[i].len() {
+                let x = indecies[i][j][1];
+                let y = indecies[i][j][0];
+                next_delta[i][y][x] =  delta_output[i][y][x];
+            }
+        }
 
         next_delta
     }
