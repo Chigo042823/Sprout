@@ -67,7 +67,7 @@ impl Activation {
         }
     }
 
-    pub fn derivative(&self, outs: Vec<f64>, true_index: usize) -> Vec<f64> {
+    pub fn derivative(&self, outs: Vec<f64>) -> Vec<f64> {
         let outputs = outs.clone();
         match self.function {
             ActivationFunction::Sigmoid => 

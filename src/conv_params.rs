@@ -1,6 +1,8 @@
 use serde_derive::{Serialize, Deserialize};
 use rand::prelude::*;
 
+use crate::activation::{ActivationFunction};
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PaddingType {
@@ -39,7 +41,7 @@ impl ConvParams {
         cp
     }
 
-    pub fn init(&mut self) {
+    pub fn init(&mut self, activation: ActivationFunction) {
         if self.weights.len() != 0 as usize {
             return;
         }
@@ -47,22 +49,70 @@ impl ConvParams {
             self.weights.push(vec![vec![0.0; self.kernel]; self.kernel]);
         }
 
-        let std_dev = (2.0 / (self.weights.len() + self.weights[0].len()) as f64).sqrt();
-        self.bias = 0.0;
+        match activation {
+            ActivationFunction::Sigmoid => 
+                {
+                    let std_dev = (2.0 / (self.weights.len() * (self.weights[0].len() * self.weights[0].len())) as f64).sqrt();
+                    let limit = (3.0 * std_dev).sqrt();
+                    self.bias = 0.0;
 
-        for i in 0..self.weights.len() {
-            for j in 0..self.weights[i].len() {
-                for k in 0..self.weights[i][j].len() {
-                    self.weights[i][j][k] = thread_rng().gen_range(-0.5..0.5) * std_dev;
-                }
-            }
+                    for i in 0..self.weights.len() {
+                        for j in 0..self.weights[i].len() {
+                            for k in 0..self.weights[i][j].len() {
+                                self.weights[i][j][k] = thread_rng().gen_range(-limit..limit) * std_dev;
+                            }
+                        }
+                    }
+                },
+            ActivationFunction::ReLU => 
+                {
+                    let std_dev = (2.0 / (self.weights.len() * (self.weights[0].len() * self.weights[0].len())) as f64).sqrt();
+                    let limit = (3.0 * std_dev).sqrt();
+                    self.bias = 0.0;
+
+                    for i in 0..self.weights.len() {
+                        for j in 0..self.weights[i].len() {
+                            for k in 0..self.weights[i][j].len() {
+                                self.weights[i][j][k] = thread_rng().gen_range(-limit..limit) * std_dev;
+                            }
+                        }
+                    }
+                },
+            ActivationFunction::TanH => 
+                {
+                    let std_dev = (1.0 / (self.weights.len() * (self.weights[0].len() * self.weights[0].len())) as f64).sqrt();
+                    let limit = (3.0 * std_dev).sqrt();
+                    self.bias = 0.0;
+
+                    for i in 0..self.weights.len() {
+                        for j in 0..self.weights[i].len() {
+                            for k in 0..self.weights[i][j].len() {
+                                self.weights[i][j][k] = thread_rng().gen_range(-limit..limit) * std_dev;
+                            }
+                        }
+                    }
+                },
+            ActivationFunction::SoftMax => 
+                {
+                    let std_dev = (1.0 / (self.weights.len() * (self.weights[0].len() * self.weights[0].len())) as f64).sqrt();
+                    let limit = (3.0 * std_dev).sqrt();
+                    self.bias = 0.0;
+
+                    for i in 0..self.weights.len() {
+                        for j in 0..self.weights[i].len() {
+                            for k in 0..self.weights[i][j].len() {
+                                self.weights[i][j][k] = thread_rng().gen_range(-limit..limit) * std_dev;
+                            }
+                        }
+                    }
+                },
         }
     }
 
-    pub fn add_padding(&mut self) {
+    pub fn add_padding(&mut self, activation: ActivationFunction) {
         if self.padding_type == PaddingType::Valid {
             self.data = self.inputs.clone();
-            self.init();
+            self.init(activation);
             return;
         }
         let mut padded_image = vec![];
@@ -91,7 +141,7 @@ impl ConvParams {
         }
 
         self.data = padded_image;
-        self.init();
+        self.init(activation);
     }
 
     pub fn get_output_dims(&self) -> [usize; 2] {

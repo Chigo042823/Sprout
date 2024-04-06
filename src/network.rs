@@ -38,7 +38,7 @@ impl Network {
             print_progress: false,
             network_type,
             loss_function: LossFunction::new(loss_type),
-            grad_threshold: 1.0,
+            grad_threshold: 0.9,
         }
     }
 
@@ -106,7 +106,7 @@ impl Network {
         output
     }
 
-    pub fn conv_backward(&mut self, loss_gradient: Vec<f64>, true_index: usize) {
+    pub fn conv_backward(&mut self, loss_gradient: Vec<f64>) {
         let mut delta_output = loss_gradient.clone();
         let mut conv_delta = vec![];
 
@@ -115,7 +115,7 @@ impl Network {
                 LayerType::Dense => 
                     {
                         let layer = &mut self.layers[i];
-                        delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate, true_index);  
+                        delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate);  
                         if i - 1 >= 0 as usize {
                             if self.layers[i - 1].layer_type != LayerType::Dense {
                                 let params = self.layers[i - 1].conv_params.as_ref().unwrap();
@@ -130,7 +130,7 @@ impl Network {
                 LayerType::Convolutional => 
                     {
                         let layer = &mut self.layers[i];
-                        conv_delta = layer.conv_backward(conv_delta.clone(), self.learning_rate, true_index);
+                        conv_delta = layer.conv_backward(conv_delta.clone(), self.learning_rate);
                     },
                 LayerType::Pooling => 
                     {
@@ -141,56 +141,76 @@ impl Network {
         }
     }
 
-    pub fn dense_backward(&mut self, loss_gradient: Vec<f64>, true_index: usize) {
+    pub fn dense_backward(&mut self, loss_gradient: Vec<f64>) {
         let mut delta_output = loss_gradient.clone();
 
         for i in (0..self.layers.len()).rev() {
             let layer = &mut self.layers[i];
-            delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate, true_index);
+            delta_output = layer.dense_backward(delta_output.clone(), self.learning_rate);
         }
     }
 
     pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<Vec<f64>>>, Vec<f64>)>, epochs: usize) {
         let samples = data.len() as f64;
-        self.cost = 0.0; // Reset cost for each epoch
         for i in 0..epochs {
             if i % 1000 == 0 && self.print_progress {
                 println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
             }
             
             Self::shuffle_tensor(&mut data);
-    
-            for sample in &data {
-                let output = self.conv_forward(sample.0.clone());
-                let target = &sample.1;
-                let mut true_index = 0;
-                for i in 0..target.len() {
-                    if target[i] == 1.0 {
-                        true_index = i;
-                        break;
-                    }
-                }
-                let mut cost = self.loss_function.function(&output, &target, true_index);
-                if cost.is_nan() || cost.is_infinite() {
-                    cost = 0.0;
-                }
-                self.cost += cost;
-    
-                let mut loss_gradient: Vec<f64> = self.loss_function.derivative(&output, target, true_index);
+            self.cost = 0.0; // Reset cost for each epoch
 
-                let l2_norm = loss_gradient.iter().map(|x| x.powf(2.0)).sum::<f64>().sqrt();
-
-                if l2_norm > self.grad_threshold {
-                    let scale = self.grad_threshold / l2_norm;
-                    for i in 0..loss_gradient.len() {
-                        loss_gradient[i] *= scale;
-                    }
+            let batches = (samples / self.batch_size as f64).ceil() as usize;
+    
+            for batch in 0..batches { //each batch
+                let mut loss_gradient: Vec<f64> = vec![0.0; data[0].1.len()]; //output nodes
+                let mut sample_max = self.batch_size;
+                let current_sample = batch * self.batch_size;
+                if  current_sample + self.batch_size >= samples as usize && self.batch_size != 1 {
+                    sample_max = self.batch_size - current_sample;
                 }
+                for s in 0..sample_max { //each sample
+                    let sample = data[batch * self.batch_size + s].clone();
+                    let output = self.conv_forward(sample.0.clone());
+                    let target = &sample.1;
+                    let mut true_index = 0;
+                    for i in 0..target.len() {
+                        if target[i] == 1.0 {
+                            true_index = i;
+                            break;
+                        }
+                    }
+                    let mut cost = self.loss_function.function(&output, &target, true_index);
+                    if cost.is_nan() || cost.is_infinite() {
+                        cost = 0.0;
+                    }
+
+                    self.cost += cost;
+        
+                    let sample_loss = self.loss_function.derivative(&output, target, true_index);
+
+                    for i in 0..loss_gradient.len() { //Sum Gradients
+                        loss_gradient[i] += sample_loss[i];
+                    }
+
+                    let l2_norm = loss_gradient.iter().map(|x| x.powf(2.0)).sum::<f64>().sqrt();
+
+                    if l2_norm > self.grad_threshold {
+                        let scale = self.grad_threshold / l2_norm;
+                        for i in 0..loss_gradient.len() {
+                            loss_gradient[i] *= scale;
+                        }
+                    }
+                    
+                }
+                for i in 0..loss_gradient.len() {
+                    loss_gradient[i] /= self.batch_size as f64;
+                }
+
+                self.conv_backward(loss_gradient);
                 
-                self.conv_backward(loss_gradient, true_index);
+                self.cost /= self.batch_size as f64; // Compute average cost per sample
             }
-    
-            self.cost /= samples; // Compute average cost per sample
         }
     
         if self.print_progress {
@@ -208,25 +228,50 @@ impl Network {
             
             Self::shuffle_vector(&mut data);
             self.cost = 0.0; // Reset cost for each epoch
+
+            let batches = (samples / self.batch_size as f64).ceil() as usize;
     
-            for sample in &data {
-                let output = self.dense_forward(sample[0].clone());
-                let target = &sample[1];
-                let mut true_index = 0;
-                for i in 0..target.len() {
-                    if target[i] == 1.0 {
-                        true_index = i;
-                        break;
+            for batch in 0..batches { //each batch
+                let mut loss_gradient: Vec<f64> = vec![0.0; data[0][1].len()]; //output nodes
+                let mut sample_max = self.batch_size;
+                let current_sample = batch * self.batch_size;
+                if  current_sample + self.batch_size >= samples as usize {
+                    sample_max = self.batch_size - current_sample;
+                }
+                for s in 0..sample_max { //each sample
+                    let sample = data[batch * self.batch_size + s].clone();
+                    let output = self.dense_forward(sample[0].clone());
+                    let target = &sample[1];
+                    let mut true_index = 0;
+                    for i in 0..target.len() {
+                        if target[i] == 1.0 {
+                            true_index = i;
+                            break;
+                        }
+                    }
+                    self.cost += self.loss_function.function(&output, &target, true_index);
+        
+                    let sample_loss = self.loss_function.derivative(&output, target, true_index);
+
+                    for i in 0..loss_gradient.len() { //Sum Gradients
+                        loss_gradient[i] += sample_loss[i];
+                    }
+
+                    let l2_norm = loss_gradient.iter().map(|x| x.powf(2.0)).sum::<f64>().sqrt();
+
+                    if l2_norm > self.grad_threshold {
+                        let scale = self.grad_threshold / l2_norm;
+                        for i in 0..loss_gradient.len() {
+                            loss_gradient[i] *= scale;
+                        }
                     }
                 }
-                self.cost += self.loss_function.function(&output, &target, true_index);
-    
-                let loss_gradient = self.loss_function.derivative(&output, &target, true_index);
-    
-                self.dense_backward(loss_gradient, true_index);
+                let _ = loss_gradient.iter().map(|x| x / self.batch_size as f64).collect::<Vec<f64>>();
+                
+                self.dense_backward(loss_gradient);
+        
+                self.cost /= samples; // Compute average cost per sample
             }
-    
-            self.cost /= samples; // Compute average cost per sample
         }
     
         if self.print_progress {

@@ -4,81 +4,78 @@ use image::*;
 use ml_library::{conv_params::PaddingType::*, activation::ActivationFunction::*, loss_function::LossType::*, conv_params::PaddingType, layer::{Layer, LayerType::*}, network::Network};
 
 fn main() {
-    let layers: Vec<Layer> = vec![
-        Layer::conv(3, Same, 1, ReLU),
-        Layer::pool(2, 1),
-        Layer::dense([4, 2], Sigmoid),
-    ];
-    let mut nn = Network::new(layers, 0.2, 2, CEL);
-
-    let data = vec![
-        (
-            vec![
-                vec![
-                vec![0.0, 1.0, 0.0],
-                vec![1.0, 1.0, 1.0],
-                vec![0.0, 1.0, 0.0],
-                ]
-            ],
-            vec![0.0, 1.0]
-        )
-    ];
-
     let time = time::Instant::now();
 
-    // let pool = nn.layers[1].conv_params.as_ref().unwrap().outputs.clone();
-    // let conv = nn.layers[0].conv_params.as_ref().unwrap().outputs.clone();
-    // for row in &conv[0] {
-    //     println!("{:?}", row);
-    // }
-    // println!("---------------");
-    // for row in &pool[0] {
-    //     println!("{:?}", row);
-    // }
-    // xor_mode(&mut nn, 10_000);
-    // digit_model(nn, 1000);
-    // nn.save_model("test1");
-    // conv_model(&mut nn);
+    conv_model();
 
     let delta = time.elapsed();
 
     println!("Training Time Elapsed: {:?}", delta);
 }
 
-pub fn conv_model(nn: &mut Network) {
+pub fn conv_model() {
+
+    let layers = vec![
+        Layer::conv(3, Valid, 1, ReLU),
+        Layer::dense([16, 3], Sigmoid),
+    ];
+
     let data = vec![
         (vec![
             vec![
-                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             ],
         ], 
         vec![0.0, 1.0, 0.0]
         ),
         (vec![
             vec![
-                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                vec![0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
+                vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
             ],
         ], 
         vec![1.0, 0.0, 0.0,]
         ),
+        (vec![
+            vec![
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+        ], 
+        vec![0.0, 0.0, 1.0,]
+        ),
     ];
-    nn.conv_train(data.clone(), 5000);
+
+    let mut nn = Network::new(layers, 0.01, 3, MSE);
+    nn.conv_train(data.clone(), 10000);
     println!("Samples: {} || Channels: {} || Rows: {} || Cols: {}", data.len(), data[0].0.len(), data[0].0[0].len(), data[0].0[0][0].len());
-    println!("Expected: [0.0, 1.0] || Output: {:?}", nn.conv_forward(data[0].0.clone()));
-    println!("Expected: [1.0, 0.0] || Output: {:?}", nn.conv_forward(data[1].0.clone()));
+    println!("Output 1: {:?}", nn.conv_forward(data[0].0.clone()));
+    println!("Output 2: {:?}", nn.conv_forward(data[1].0.clone()));
+    println!("Output 3: {:?}", nn.conv_forward(data[2].0.clone()));
 }
 
-pub fn xor_mode(nn: &mut Network, epochs: usize) {
+pub fn xor_mode(epochs: usize) {
+
+    let layers = vec![
+        Layer::dense([2, 3], Sigmoid),
+        Layer::dense([3, 1], Sigmoid),
+    ];
+
+    let mut nn = Network::new(layers, 0.5, 3, MSE);
+
     let data: Vec<[Vec<f64>; 2]> = vec![
         [vec![1.0, 0.0], vec![0.0]],
         [vec![0.0, 0.0], vec![1.0]],

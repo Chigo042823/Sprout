@@ -29,12 +29,13 @@ impl Layer {
     pub fn dense(nodes: [usize; 2], activation_fn: ActivationFunction) -> Self {
         let dense_params = Some(DenseParams::new(nodes[0], nodes[1]));
 
-        let layer = Layer {
+        let mut layer = Layer {
             dense_params,
             activation: Activation::new(activation_fn),
             layer_type: LayerType::Dense,
             conv_params: None
         };
+        layer.dense_params.as_mut().unwrap().init(layer.activation.function.clone());
         layer
     }
 
@@ -66,7 +67,7 @@ impl Layer {
         if params.padding_type == PaddingType::Valid {
             params.data = params.inputs.clone();
         }
-        params.add_padding();
+        params.add_padding(self.activation.function.clone());
         let output_dims = params.get_output_dims();
 
         let mut weighted_inputs = vec![vec![vec![0.0; output_dims[0]]; output_dims[1]]; params.data.len()];
@@ -102,7 +103,7 @@ impl Layer {
     pub fn pool_forward(&mut self, inputs: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
         let params = self.conv_params.as_mut().unwrap();
         params.inputs = inputs;
-        params.add_padding();
+        params.add_padding(self.activation.function.clone());
 
         let output_dims = params.get_output_dims();
         let img = params.inputs.clone();
@@ -149,7 +150,7 @@ impl Layer {
         activation
     }
 
-    pub fn conv_backward(&mut self, errors: Vec<Vec<Vec<f64>>>, learning_rate: f64, true_index: usize) -> Vec<Vec<Vec<f64>>> {
+    pub fn conv_backward(&mut self, errors: Vec<Vec<Vec<f64>>>, learning_rate: f64) -> Vec<Vec<Vec<f64>>> {
         let params = self.conv_params.as_mut().unwrap();
         let channels = params.data.len();
         let mut delta_output = errors;
@@ -164,7 +165,7 @@ impl Layer {
                 if self.activation.function == ActivationFunction::SoftMax {
                     break;
                 }
-                let activation_derivatives = self.activation.derivative(params.outputs[i][j].clone(), true_index);
+                let activation_derivatives = self.activation.derivative(params.outputs[i][j].clone());
                 for k in 0..delta_output[i][j].len() {
                     delta_output[i][j][k] *= activation_derivatives[k];
                 }
@@ -262,7 +263,7 @@ impl Layer {
                             }
                         }
                     }
-                    img_indecies.push(max_indx); //each img
+                    img_indecies.push((max_indx, max)); //each img
                 }
             }
             indecies.push(img_indecies); //each channel
@@ -270,9 +271,9 @@ impl Layer {
 
         for i in 0..indecies.len() {
             for j in 0..indecies[i].len() {
-                let x = indecies[i][j][1];
-                let y = indecies[i][j][0];
-                next_delta[i][y][x] =  delta_output[i][y][x];
+                let x = indecies[i][j].0[1];
+                let y = indecies[i][j].0[0];
+                next_delta[i][y][x] =  0.0;
             }
         }
 
@@ -304,10 +305,10 @@ impl Layer {
         padded_image
     }
 
-    pub fn dense_backward(&mut self, errors: Vec<f64>, learning_rate: f64, true_index: usize) -> Vec<f64> {
+    pub fn dense_backward(&mut self, errors: Vec<f64>, learning_rate: f64) -> Vec<f64> {
         let mut delta_output = errors.clone();
 
-        let activation_gradients = self.activation.derivative(self.dense_params.as_mut().unwrap().outputs.clone(), true_index);
+        let activation_gradients = self.activation.derivative(self.dense_params.as_mut().unwrap().outputs.clone());
         for i in 0..delta_output.len() {
             if self.activation.function == ActivationFunction::SoftMax {
                 break;
@@ -375,11 +376,11 @@ impl Layer {
         if self.layer_type == LayerType::Dense {
             self.dense_params.as_mut().unwrap().inputs = vec![];
             self.dense_params.as_mut().unwrap().outputs = vec![];
-            self.dense_params.as_mut().unwrap().init();
+            self.dense_params.as_mut().unwrap().init(self.activation.function.clone());
         } else {
             self.conv_params.as_mut().unwrap().inputs = vec![];
             self.conv_params.as_mut().unwrap().outputs = vec![];
-            self.conv_params.as_mut().unwrap().init();
+            self.conv_params.as_mut().unwrap().init(self.activation.function.clone());
         }
     }
 
