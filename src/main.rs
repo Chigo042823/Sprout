@@ -17,7 +17,8 @@ pub fn conv_model() {
 
     let layers = vec![
         Layer::conv(3, Valid, 1, ReLU),
-        Layer::dense([16, 3], Sigmoid),
+        Layer::pool(2, 2),
+        Layer::dense([4, 3], Sigmoid),
     ];
 
     let data = vec![

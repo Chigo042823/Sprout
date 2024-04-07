@@ -112,17 +112,25 @@ impl Layer {
 
         for i in 0..img.len() { //each channel
             for j in (0..output[i].len()) { //each output img row
-                if j + params.kernel > params.data[i].len() {
+                if j + params.kernel >= img[i].len() {
                     break;
                 }
                 for k in (0..output[i][j].len()) { //each output img column
-                    if k + params.kernel > params.data[i][0].len() {
+                    if k + params.kernel >= img[i][0].len() {
                         break;
                     }
                     let mut max = img[i][j][k];
                     for kern_row in 0..params.kernel { //Kernel rows
+                        let row_i = j * params.stride + kern_row;
+                        if row_i >= img[i].len() {
+                            break;
+                        }
                         for kern_col in 0..params.kernel { //Kernel Columns
-                            let val = img[i][j * params.stride + kern_row][k * params.stride + kern_col];
+                            let col_i = k * params.stride + kern_col;
+                            if col_i >= img[i][0].len() {
+                                break;
+                            }
+                            let val = img[i][row_i][col_i];
                             if val > max {
                                 max = val;
                             }
@@ -238,45 +246,43 @@ impl Layer {
         let img = params.data.clone();
         let kernel = params.kernel;
         let inputs = params.inputs.clone();
-        let mut indecies = vec![];
+        let mut indecies = vec![[0, 0]; delta_output.len() * delta_output[0].len() + delta_output[0][0].len()];
 
-        let mut next_delta = vec![vec![vec![0.0; inputs[0][0].len()]; inputs[0].len()]; inputs.len()]; //3x3
+        let mut next_delta = vec![vec![vec![0.0; inputs[0][0].len()]; inputs[0].len()]; inputs.len()]; //4x4
 
         for i in 0..channels { //each channel
-            let mut img_indecies = vec![];
             for j in (0..delta_output[i].len()) { //each img row
-                if j + kernel == img[i].len() {
+                if j + kernel >= img[i].len() {
                     break;
                 }
                 for k in (0..delta_output[i][j].len()) { //each img column
-                    if k + kernel == img[i][j].len() {
+                    if k + kernel >= img[i][j].len() {
                         break;
                     }
-                    let mut max = inputs[i][0][0];
-                    let mut max_indx = [0, 0];
+                    let mut max = inputs[i][j][k];
+                    let mut max_indx = [j, k];
                     for kern_row in 0..kernel { //Kernel rows
+                        let row_i = j * params.stride + kern_row;
+                        if row_i >= img[i].len() {
+                            break;
+                        }
                         for kern_col in 0..kernel { //Kernel Columns
-                            let val = img[i][j * params.stride + kern_row][k * params.stride + kern_col];
+                            let col_i = k * params.stride + kern_col;
+                            if col_i >= img[i][0].len() {
+                                break;
+                            }
+                            let val = img[i][row_i][col_i];
                             if val > max {
-                                max_indx = [j * params.stride + kern_row, k * params.stride + kern_col]; //each kernel
+                                max_indx = [row_i, col_i]; //each kernel
                                 max = val;
                             }
                         }
+                        // indecies.push(max_indx); //each channel
                     }
-                    img_indecies.push((max_indx, max)); //each img
+                    next_delta[i][max_indx[0]][max_indx[1]] = delta_output[i][j][k];
                 }
             }
-            indecies.push(img_indecies); //each channel
         }
-
-        for i in 0..indecies.len() {
-            for j in 0..indecies[i].len() {
-                let x = indecies[i][j].0[1];
-                let y = indecies[i][j].0[0];
-                next_delta[i][y][x] =  0.0;
-            }
-        }
-
         next_delta
     }
 
@@ -336,18 +342,20 @@ impl Layer {
         next_delta
     }
 
-    pub fn get_weights(&self) -> Vec<Vec<f64>> {
-        if self.layer_type == LayerType::Dense {
-            return self.dense_params.as_ref().unwrap().weights.clone();
-        }
-        vec![]
+    pub fn get_dense_weights(&self) -> Vec<Vec<f64>> {
+        return self.dense_params.as_ref().unwrap().weights.clone();
     }
 
-    pub fn get_biases(&self) -> Vec<f64> {
-        if self.layer_type == LayerType::Dense {
-            return self.dense_params.as_ref().unwrap().biases.clone();
-        }
-        vec![]
+    pub fn get_dense_biases(&self) -> Vec<f64> {
+        return self.dense_params.as_ref().unwrap().biases.clone();
+    }
+
+    pub fn get_conv_weights(&self) -> Vec<Vec<Vec<f64>>> {
+        return self.conv_params.as_ref().unwrap().weights.clone();
+    }
+
+    pub fn get_conv_biases(&self) -> f64 {
+        return self.conv_params.as_ref().unwrap().bias.clone();
     }
 
     pub fn get_nodes(&self) -> usize {
@@ -364,8 +372,12 @@ impl Layer {
         0
     }
 
-    pub fn get_outputs(&self) -> Vec<f64> {
+    pub fn get_dense_outputs(&self) -> Vec<f64> {
         self.dense_params.as_ref().unwrap().outputs.clone()
+    }
+
+    pub fn get_conv_outputs(&self) -> Vec<Vec<Vec<f64>>> {
+        self.conv_params.as_ref().unwrap().outputs.clone()
     }
 
     pub fn get_layer_type(&self) -> LayerType {

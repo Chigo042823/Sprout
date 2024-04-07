@@ -148,8 +148,8 @@ impl ConvParams {
         let height = self.data[0].len();
         let width = self.data[0][0].len();
 
-        let out_width = width - self.kernel + 1;
-        let out_height = height - self.kernel + 1;
+        let out_width = (width - self.kernel) / self.stride + 1;
+        let out_height = (height - self.kernel) / self.stride + 1;
 
         [out_width, out_height]
     }
