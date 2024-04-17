@@ -73,7 +73,7 @@ impl ConvParams {
                     for i in 0..self.weights.len() {
                         for j in 0..self.weights[i].len() {
                             for k in 0..self.weights[i][j].len() {
-                                self.weights[i][j][k] = thread_rng().gen_range(-limit..limit) * std_dev;
+                                self.weights[i][j][k] = thread_rng().gen_range(-std_dev..std_dev);
                             }
                         }
                     }

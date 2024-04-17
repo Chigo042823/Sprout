@@ -26,7 +26,7 @@ impl Network {
     pub fn new(layers: Vec<Layer>, learning_rate: f64, batch_size: usize, loss_type: LossType) -> Self {
         let mut network_type = NetworkType::FCN;
         for i in 0..layers.len() {
-            if layers[i].layer_type == LayerType::Convolutional {
+            if layers[i].layer_type == LayerType::Convolutional || layers[i].layer_type == LayerType::Pooling {
                 network_type = NetworkType::CNN;
             }
         }
@@ -38,7 +38,7 @@ impl Network {
             print_progress: false,
             network_type,
             loss_function: LossFunction::new(loss_type),
-            grad_threshold: 0.9,
+            grad_threshold: 0.2,
         }
     }
 
@@ -152,11 +152,12 @@ impl Network {
 
     pub fn conv_train(&mut self, mut data: Vec<(Vec<Vec<Vec<f64>>>, Vec<f64>)>, epochs: usize) {
         let samples = data.len() as f64;
-        self.cost = 0.0; // Reset cost
         for i in 0..epochs {
             if i % 1000 == 0 && self.print_progress {
                 println!("Progress: {}%", 100.0 * (i as f64 / epochs as f64));
             }
+
+            self.cost = 0.0; // Reset cost
             
             Self::shuffle_tensor(&mut data);
             

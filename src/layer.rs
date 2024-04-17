@@ -112,14 +112,14 @@ impl Layer {
 
         for i in 0..img.len() { //each channel
             for j in (0..output[i].len()) { //each output img row
-                if j + params.kernel >= img[i].len() {
+                if (j) * params.kernel >= img[i].len() {
                     break;
                 }
                 for k in (0..output[i][j].len()) { //each output img column
-                    if k + params.kernel >= img[i][0].len() {
+                    if (k) * params.kernel >= img[i][0].len() {
                         break;
                     }
-                    let mut max = img[i][j][k];
+                    let mut max = f64::NEG_INFINITY;
                     for kern_row in 0..params.kernel { //Kernel rows
                         let row_i = j * params.stride + kern_row;
                         if row_i >= img[i].len() {
@@ -190,7 +190,6 @@ impl Layer {
                     for kern_row in 0..kernel { //Kernel rows
                         for kern_col in 0..kernel { //Kernel Columns
                             weight_gradients[i][kern_row][kern_col] += (img[i][j * params.stride + kern_row][k * params.stride + kern_col] * delta_output[i][j][k]);
-                            let _ = weight_gradients[i][kern_row][kern_col];
                         }
                     }
                 }
@@ -207,7 +206,6 @@ impl Layer {
                 }
             }
             avg_bias_gradient /= (delta_output[i].len() * delta_output[i][0].len()) as f64;
-            let _ = avg_bias_gradient;
 
             let padded_gradients = Self::add_padding_matrix(kernel - 1, &delta_output[i]);
 
@@ -252,15 +250,15 @@ impl Layer {
 
         for i in 0..channels { //each channel
             for j in (0..delta_output[i].len()) { //each img row
-                if j + kernel >= img[i].len() {
+                if j * params.stride >= img[i].len() {
                     break;
                 }
                 for k in (0..delta_output[i][j].len()) { //each img column
-                    if k + kernel >= img[i][j].len() {
+                    if k * params.stride >= img[i][j].len() {
                         break;
                     }
-                    let mut max = inputs[i][j][k];
-                    let mut max_indx = [j, k];
+                    let mut max = f64::NEG_INFINITY;
+                    let mut max_indx = [j * params.stride, k * params.stride];
                     for kern_row in 0..kernel { //Kernel rows
                         let row_i = j * params.stride + kern_row;
                         if row_i >= img[i].len() {
