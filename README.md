@@ -47,3 +47,7 @@ Sprout uses a Vec of the included Layer struct which is passed into the Network 
 As of now the only supported layers are conv and dense layers, pooling layers are next on the agenda.
 
 will expound readme soon...
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
