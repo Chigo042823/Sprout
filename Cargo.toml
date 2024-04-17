@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "A simple Machine Learning Library built in Rust"
-repository = "https://github.com/Chigo042823/Sprout?tab=readme-ov-file"
+repository = "https://github.com/Chigo042823/Sprout"
 readme = "README.md"
 exclude = [
     "*.json",
