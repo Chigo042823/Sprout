@@ -1,5 +1,5 @@
 <p align="center">
-    <img height="40%" width="40%" src="assets/Logo.png" alt="Sprout Logo">
+    <img height="50%" width="50%" src="assets/Logo.png" alt="Sprout Logo">
 </p>
 
 <h1>About</h1>
