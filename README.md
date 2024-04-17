@@ -1,3 +1,7 @@
+<p align="center">
+    <img src="assets/Logo.png" alt="Sprout Logo" width="500" height="500"/>
+</p>
+# Introduction
 This is a simple Machine Learning library in rust made with no pre-existing ML or linear algebra libraries.
 You can easily build your network by defining layers within a vec and pasing it into the network struct:
 
